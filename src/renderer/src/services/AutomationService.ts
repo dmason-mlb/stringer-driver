@@ -6,6 +6,17 @@ export class AutomationService {
   }
 
   /**
+   * Open the DevTools for the webview
+   */
+  openDevTools(): void {
+    if (this.webview.isDevToolsOpened()) {
+      this.webview.closeDevTools();
+    } else {
+      this.webview.openDevTools();
+    }
+  }
+
+  /**
    * Inject raw JavaScript into the webview
    */
   async execute<T>(code: string): Promise<T> {
@@ -84,4 +95,3 @@ export class AutomationService {
     `);
   }
 }
-

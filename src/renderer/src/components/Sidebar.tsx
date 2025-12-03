@@ -22,6 +22,14 @@ export const Sidebar = () => {
     }
   };
 
+  const handleInspectApp = () => {
+    if (service) {
+        service.openDevTools();
+    } else {
+        alert('Automation service not ready');
+    }
+  };
+
   return (
     <div className="w-64 h-full bg-gray-800 text-white flex flex-col border-r border-gray-700">
       <div className="p-4 border-b border-gray-700">
@@ -66,6 +74,16 @@ export const Sidebar = () => {
             className="w-full bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 px-4 rounded transition-colors"
           >
             Advance Game
+          </button>
+        </div>
+
+        <div className="space-y-2">
+          <h2 className="text-sm font-semibold text-gray-400">Debug</h2>
+          <button 
+            onClick={handleInspectApp}
+            className="w-full bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium py-2 px-4 rounded transition-colors"
+          >
+            Inspect App Element
           </button>
         </div>
       </div>
