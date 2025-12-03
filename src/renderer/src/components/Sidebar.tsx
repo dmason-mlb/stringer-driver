@@ -46,17 +46,8 @@ export const Sidebar = () => {
             <span className="text-yellow-500 text-lg">⚠️</span>
             <div className="text-xs text-yellow-200">
               <p className="mb-2">
-                Please notify the channel of the game you intend to string.
+                Please notify the <span className="font-bold text-yellow-100">#qa-stringing</span> channel of the game you intend to string.
               </p>
-              <a 
-                href="https://mlb.slack.com/app_redirect?channel=qa-stringing" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-blue-400 hover:text-blue-300 hover:underline font-medium inline-flex items-center"
-              >
-                #qa-stringing
-                <span className="ml-1">↗</span>
-              </a>
             </div>
           </div>
         </div>
