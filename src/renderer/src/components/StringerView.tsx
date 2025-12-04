@@ -1,5 +1,4 @@
 import React, { useEffect, useRef } from 'react'
-import { useAutomation } from '../context/AutomationContext'
 
 declare global {
   namespace JSX {
@@ -15,29 +14,32 @@ declare global {
   }
 }
 
-export const StringerView = () => {
+interface StringerViewProps {
+  isActive: boolean;
+  partition: string;
+  onMount: (webview: Electron.WebviewTag) => void;
+}
+
+export const StringerView = ({ isActive, partition, onMount }: StringerViewProps) => {
   const webviewRef = useRef<Electron.WebviewTag | null>(null);
-  const { setWebview } = useAutomation();
 
   useEffect(() => {
     const webview = webviewRef.current;
     if (webview) {
-      setWebview(webview);
+      onMount(webview);
       webview.addEventListener('dom-ready', () => {
-        console.log('Stringer view loaded');
-        // openDevTools for the webview for debugging
-        // (webview as any).openDevTools();
+        console.log(`Stringer view loaded (partition: ${partition})`);
       });
     }
-  }, [setWebview]);
+  }, [onMount, partition]);
 
   return (
-    <div className="flex-1 h-full bg-white relative">
+    <div className={`flex-1 h-full bg-white relative ${isActive ? 'block' : 'hidden'}`}>
         <webview
             ref={webviewRef as any}
             src="https://stringer-qa.bdatasf.mlbinfra.com/client/index.html"
             className="w-full h-full"
-            partition="persist:stringer" // Ensure persistence
+            partition={partition}
             allowpopups="true"
         />
     </div>

@@ -8,7 +8,11 @@ import mlbLogo from '../assets/mlb-logo.svg'
 
 type View = 'main' | 'advance' | 'individual';
 
-export const Sidebar = () => {
+interface SidebarProps {
+  onGameSetup?: (name: string) => void;
+}
+
+export const Sidebar = ({ onGameSetup }: SidebarProps) => {
   const { service } = useAutomation();
   const [currentView, setCurrentView] = useState<View>('main');
   const [direction, setDirection] = useState(0);
@@ -21,7 +25,10 @@ export const Sidebar = () => {
 
   const handleInitialSetup = async () => {
     if (service) {
-        await runInitialSetup(service);
+        const gameName = await runInitialSetup(service);
+        if (gameName && onGameSetup) {
+            onGameSetup(gameName);
+        }
     } else {
         alert('Automation service not ready');
     }
