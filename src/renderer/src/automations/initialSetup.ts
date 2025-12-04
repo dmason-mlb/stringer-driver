@@ -234,19 +234,29 @@ export const runInitialSetup = async (service: AutomationService): Promise<strin
         async function populateWeather() {
             log('Populating Weather...');
 
-            // 1. Weather Condition: "Clear"
+            // 1. Weather Condition: "Sunny"
             // Selector for the container that triggers the dropdown
             const conditionInputSelector = '#mainContainer > div.content > div.weather-wrap.pure-g > form:nth-child(1) > fieldset > div > div.selectize-input';
             const conditionInput = document.querySelector(conditionInputSelector);
             if (conditionInput) {
                 conditionInput.click();
                 await delay(500);
-                const clearOption = document.querySelector('.selectize-dropdown.single.weather-condition div[data-value="Clear"]');
-                if (clearOption) {
-                    clearOption.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-                    log('Weather Condition: Selected Clear');
+                // User provided specific selector for "Sunny"
+                const sunnyOptionSelector = '#mainContainer > div.content > div.weather-wrap.pure-g > form:nth-child(1) > fieldset > div > div.selectize-dropdown.single.weather-condition > div > div:nth-child(2)';
+                const sunnyOption = document.querySelector(sunnyOptionSelector);
+                
+                if (sunnyOption) {
+                    sunnyOption.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+                    log('Weather Condition: Selected Sunny');
                 } else {
-                    log('Weather Condition: "Clear" option not found');
+                    // Fallback to finding by text or data-value if specific selector fails
+                    const fallbackOption = document.querySelector('.selectize-dropdown.single.weather-condition div[data-value="Sunny"]');
+                     if (fallbackOption) {
+                        fallbackOption.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+                        log('Weather Condition: Selected Sunny (via fallback)');
+                    } else {
+                        log('Weather Condition: "Sunny" option not found');
+                    }
                 }
             } else {
                 log('Weather Condition input not found');

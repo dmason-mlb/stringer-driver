@@ -9,6 +9,8 @@ function App(): JSX.Element {
     { id: '1', name: 'New Stringer Game', partition: 'persist:stringer-1' }
   ]);
   const [activeTabId, setActiveTabId] = useState('1');
+  const [loadingTabs, setLoadingTabs] = useState<Record<string, boolean>>({});
+  
   const webviewsRef = useRef<Record<string, Electron.WebviewTag>>({});
   const { setWebview } = useAutomation();
 
@@ -52,6 +54,11 @@ function App(): JSX.Element {
     const tabIndex = tabs.findIndex(t => t.id === id);
     const newTabs = tabs.filter(t => t.id !== id);
     setTabs(newTabs);
+    
+    // Clean up loading state
+    const newLoadingTabs = { ...loadingTabs };
+    delete newLoadingTabs[id];
+    setLoadingTabs(newLoadingTabs);
 
     // Clean up webview ref
     delete webviewsRef.current[id];
@@ -73,8 +80,15 @@ function App(): JSX.Element {
     ));
   };
 
-  const handleGameSetup = (name: string) => {
-    handleRenameTab(activeTabId, name);
+  const handleGameSetup = (tabId: string, name: string) => {
+    handleRenameTab(tabId, name);
+  };
+
+  const handleSetTabLoading = (tabId: string, isLoading: boolean) => {
+    setLoadingTabs(prev => ({
+      ...prev,
+      [tabId]: isLoading
+    }));
   };
 
   const handleWebviewMount = useCallback((id: string, webview: Electron.WebviewTag) => {
@@ -83,7 +97,12 @@ function App(): JSX.Element {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden">
-      <Sidebar onGameSetup={handleGameSetup} />
+      <Sidebar 
+        activeTabId={activeTabId}
+        onGameSetup={handleGameSetup} 
+        loadingTabs={loadingTabs}
+        setTabLoading={handleSetTabLoading}
+      />
       
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         <TabList

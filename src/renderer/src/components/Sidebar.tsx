@@ -9,14 +9,19 @@ import mlbLogo from '../assets/mlb-logo.svg'
 type View = 'main' | 'advance' | 'individual';
 
 interface SidebarProps {
-  onGameSetup?: (name: string) => void;
+  activeTabId: string;
+  onGameSetup?: (tabId: string, name: string) => void;
+  loadingTabs: Record<string, boolean>;
+  setTabLoading: (tabId: string, isLoading: boolean) => void;
 }
 
-export const Sidebar = ({ onGameSetup }: SidebarProps) => {
+export const Sidebar = ({ activeTabId, onGameSetup, loadingTabs, setTabLoading }: SidebarProps) => {
   const { service } = useAutomation();
   const [currentView, setCurrentView] = useState<View>('main');
   const [direction, setDirection] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
+
+  // Determine if the *current active tab* is loading
+  const isLoading = loadingTabs[activeTabId] || false;
 
   const navigate = (newView: View, newDirection: number) => {
     setDirection(newDirection);
@@ -24,18 +29,21 @@ export const Sidebar = ({ onGameSetup }: SidebarProps) => {
   };
 
   const handleInitialSetup = async () => {
+    // Capture the tab ID at the start of the operation
+    const operationTabId = activeTabId;
+
     if (service) {
-        setIsLoading(true);
+        setTabLoading(operationTabId, true);
         try {
             const gameName = await runInitialSetup(service);
             if (gameName && onGameSetup) {
-                onGameSetup(gameName);
+                onGameSetup(operationTabId, gameName);
             }
         } catch (error) {
             console.error('Initial setup failed:', error);
             alert('Initial setup failed. Check console for details.');
         } finally {
-            setIsLoading(false);
+            setTabLoading(operationTabId, false);
         }
     } else {
         alert('Automation service not ready');
@@ -51,12 +59,15 @@ export const Sidebar = ({ onGameSetup }: SidebarProps) => {
   };
 
   const handleGameAction = async (action: string) => {
+    // Capture the tab ID at the start of the operation
+    const operationTabId = activeTabId;
+
     if (!service) {
       alert('Automation service not ready');
       return;
     }
 
-    setIsLoading(true);
+    setTabLoading(operationTabId, true);
     try {
       switch (action) {
         case "Strikeout":
@@ -93,7 +104,7 @@ export const Sidebar = ({ onGameSetup }: SidebarProps) => {
       console.error('Action failed:', error);
       alert(`Action failed: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
-      setIsLoading(false);
+      setTabLoading(operationTabId, false);
     }
   };
 
