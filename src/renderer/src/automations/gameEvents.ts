@@ -209,9 +209,6 @@ export async function performHit(service: AutomationService, hitType: HitType): 
   // 3. Click Hit Location
   if (hitType === 'Home Run') {
     // Click just inside top-left of the HR path (5% down, 5% right)
-    // We use the specific path element for HR logic if possible, or just relative to the main SVG
-    // The user instructions say: click just inside of the top-left corner of this element: `#hit-location > svg > path:nth-child(8)`
-    // Let's use clickRelative on that specific path
     await service.clickRelative(SELECTORS.HIT_LOCATION_HR_PATH, 5, 5);
   } else {
     // Click exact center for S/D/T
@@ -245,6 +242,78 @@ export async function performHit(service: AutomationService, hitType: HitType): 
   await delay(1500);
 
   // 7. Click Next Batter
+  console.log('Checking for Next Batter button...');
+  const nextBatterBtnExists = await service.waitFor(SELECTORS.NEXT_BATTER_BUTTON, 5000);
+  if (nextBatterBtnExists) {
+    await service.click(SELECTORS.NEXT_BATTER_BUTTON);
+    console.log('Clicked Next Batter');
+  } else {
+    console.warn('Next Batter dialog did not appear');
+  }
+}
+
+export type OutType = 'Fly Out' | 'Ground Out';
+
+export async function performOut(service: AutomationService, outType: OutType): Promise<void> {
+  console.log(`Starting performOut: ${outType}`);
+
+  await ensurePitchMenu(service);
+  
+  // 1. Click Pitch Area (already done in ensurePitchMenu)
+  
+  // 2. Send keys: 'p' -> 'x' -> 'o' -> 'o'
+  await service.sendKey('p');
+  await delay(200);
+  await service.sendKey('x');
+  await delay(200);
+  await service.sendKey('o');
+  await delay(200);
+  await service.sendKey('o');
+  await delay(1000); // Wait for hit location overlay
+  
+  // 3. Click Hit Location
+  await service.clickCenter(SELECTORS.HIT_LOCATION);
+  await delay(1000);
+
+  // 4. Send key: 'f' (Fly Out) or 'g' (Ground Out)
+  const outKey = outType === 'Fly Out' ? 'f' : 'g';
+  await service.sendKey(outKey);
+  await delay(1500); // Wait for fielder selection dialog
+
+  // 5. Fielder Selection
+  console.log('Selecting fielders...');
+  // (8) is Center Fielder
+  await service.click(SELECTORS.CENTER_FIELDER);
+  await delay(500);
+  
+  if (outType === 'Ground Out') {
+    // (3) is First Baseman
+    await service.click(SELECTORS.FIRST_BASEMAN);
+    await delay(500);
+  }
+
+  await service.click(SELECTORS.COMMIT_FIELDERS);
+  await delay(1500); // Wait for next step
+
+  // 6. Handle Runners Commit (if runners on base)
+  const runners = await getRunnersOnBase(service);
+  const anyRunners = runners.first || runners.second || runners.third;
+
+  if (anyRunners) {
+      console.log('Runners on base, checking for Runner Commit button...');
+      const commitRunnersExists = await service.waitFor(SELECTORS.COMMIT_RUNNERS, 3000);
+      if (commitRunnersExists) {
+        await service.click(SELECTORS.COMMIT_RUNNERS);
+        console.log('Clicked Runner Commit');
+        await delay(1500);
+      } else {
+         console.warn('Runner Commit button expected but not found, or not needed');
+      }
+  }
+  
+  // 7. Click Next Batter (check if outs < 3, but we don't track outs strictly here locally for flow control inside the function, we rely on UI)
+  // Note: If it's the 3rd out, "Next Batter" might not appear? Or it might be "End Inning"?
+  // In performStrikeout we check outs. Here we assume user knows what they are doing or we handle timeout gracefully.
   console.log('Checking for Next Batter button...');
   const nextBatterBtnExists = await service.waitFor(SELECTORS.NEXT_BATTER_BUTTON, 5000);
   if (nextBatterBtnExists) {

@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { useAutomation } from '../context/AutomationContext'
 import { runInitialSetup } from '../automations/initialSetup'
-import { performStrikeout, performStrikeoutsToEndInning, performHit } from '../automations/gameEvents'
+import { performStrikeout, performStrikeoutsToEndInning, performHit, performOut } from '../automations/gameEvents'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ChevronLeft } from 'lucide-react'
 import mlbLogo from '../assets/mlb-logo.svg'
@@ -61,6 +61,12 @@ export const Sidebar = () => {
           break;
         case "Home Run":
           await performHit(service, 'Home Run');
+          break;
+        case "Fly Out":
+          await performOut(service, 'Fly Out');
+          break;
+        case "Ground Out":
+          await performOut(service, 'Ground Out');
           break;
         default:
           console.log(`Action: ${action} not implemented yet`);
