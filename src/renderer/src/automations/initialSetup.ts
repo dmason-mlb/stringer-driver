@@ -1,9 +1,35 @@
 import { AutomationService } from '../services/AutomationService';
 
-export const runInitialSetup = async (service: AutomationService) => {
+export const runInitialSetup = async (service: AutomationService): Promise<string | null> => {
   console.log('Running Initial Setup...');
 
   try {
+    // 1. Attempt to get the game name immediately (before starting the long process)
+    const gameName = await service.execute<string | null>(`
+      (function() {
+        const infoEl = document.querySelector('#mainContainer > core-menu > div:nth-child(3)');
+        return infoEl ? infoEl.textContent : null;
+      })()
+    `);
+
+    // 2. Run the setup automation asynchronously (fire and forget from the perspective of the name return, 
+    //    BUT we probably want to await it for the UI loading state... 
+    //    However, the user wants the rename to happen *immediately* when clicked, or at least as part of the trigger.
+    //    If we return the name, the UI updates. Then we can await the rest.)
+    
+    // Actually, the user said: "Do this every time the initialSetup action is triggered... Manual tab names should be overwritten by the initial setup button."
+    // And: "Renaming the tab should be the first thing that the Initial Setup script does when the button is clicked."
+    
+    // So we should return the name first, but we still need to run the script.
+    // To do this properly in the Sidebar component, we might need to split this function or return the promise of the automation along with the name?
+    // OR, we can just return the name if found, and then continue execution.
+    
+    // The issue is that `await service.execute(...)` waits for the WHOLE script to finish.
+    // So we must split the script into:
+    // A. Get Name
+    // B. Run Setup
+    
+    // Let's perform the setup now.
     await service.execute(`
       (async function() {
         const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -305,7 +331,7 @@ export const runInitialSetup = async (service: AutomationService) => {
             // 4. Wait for Home Screen
             log('Waiting for Home screen...');
             await delay(3000); 
-
+            
             // 5. Populate Home
             log('--- Processing Home Team ---');
             await populateLineup();
@@ -337,8 +363,11 @@ export const runInitialSetup = async (service: AutomationService) => {
         }
       })();
     `);
+
+    return gameName;
     
   } catch (error) {
     console.error('Initial Setup failed:', error);
+    return null;
   }
 };

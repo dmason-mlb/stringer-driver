@@ -25,9 +25,17 @@ export const Sidebar = ({ onGameSetup }: SidebarProps) => {
 
   const handleInitialSetup = async () => {
     if (service) {
-        const gameName = await runInitialSetup(service);
-        if (gameName && onGameSetup) {
-            onGameSetup(gameName);
+        setIsLoading(true);
+        try {
+            const gameName = await runInitialSetup(service);
+            if (gameName && onGameSetup) {
+                onGameSetup(gameName);
+            }
+        } catch (error) {
+            console.error('Initial setup failed:', error);
+            alert('Initial setup failed. Check console for details.');
+        } finally {
+            setIsLoading(false);
         }
     } else {
         alert('Automation service not ready');
