@@ -34,7 +34,11 @@ export const StringerView = ({ isActive, partition, onMount }: StringerViewProps
   }, [onMount, partition]);
 
   return (
-    <div className={`flex-1 h-full bg-white relative ${isActive ? 'block' : 'hidden'}`}>
+    <div 
+      className={`absolute inset-0 h-full w-full bg-white transition-opacity duration-200 ${
+        isActive ? 'z-10 opacity-100 pointer-events-auto' : 'z-0 opacity-0 pointer-events-none'
+      }`}
+    >
         <webview
             ref={webviewRef as any}
             src="https://stringer-qa.bdatasf.mlbinfra.com/client/index.html"
