@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react';
 import { AutomationService } from '../services/AutomationService';
 
 interface AutomationContextType {
@@ -11,9 +11,9 @@ const AutomationContext = createContext<AutomationContextType | undefined>(undef
 export const AutomationProvider = ({ children }: { children: ReactNode }) => {
   const [service, setService] = useState<AutomationService | null>(null);
 
-  const setWebview = (webview: Electron.WebviewTag) => {
+  const setWebview = useCallback((webview: Electron.WebviewTag) => {
     setService(new AutomationService(webview));
-  };
+  }, []);
 
   return (
     <AutomationContext.Provider value={{ service, setWebview }}>
@@ -29,4 +29,3 @@ export const useAutomation = () => {
   }
   return context;
 };
-
