@@ -3,7 +3,7 @@ import { useAutomation } from '../context/AutomationContext'
 import { runInitialSetup } from '../automations/initialSetup'
 import { performStrikeout, performStrikeoutsToEndInning, performHit, performOut, performWalk } from '../automations/gameEvents'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ChevronLeft } from 'lucide-react'
+import { ChevronLeft, Plus } from 'lucide-react'
 import mlbLogo from '../assets/mlb-logo.svg'
 
 type View = 'main' | 'advance' | 'individual';
@@ -13,9 +13,10 @@ interface SidebarProps {
   onGameSetup?: (tabId: string, name: string) => void;
   loadingTabs: Record<string, boolean>;
   setTabLoading: (tabId: string, isLoading: boolean) => void;
+  onNewGame?: () => void;
 }
 
-export const Sidebar = ({ activeTabId, onGameSetup, loadingTabs, setTabLoading }: SidebarProps) => {
+export const Sidebar = ({ activeTabId, onGameSetup, loadingTabs, setTabLoading, onNewGame }: SidebarProps) => {
   const { service } = useAutomation();
   const [currentView, setCurrentView] = useState<View>('main');
   const [direction, setDirection] = useState(0);
@@ -147,6 +148,14 @@ export const Sidebar = ({ activeTabId, onGameSetup, loadingTabs, setTabLoading }
         <div className="text-xs">{service ? 'Connected' : 'Disconnected'}</div>
       </div>
       
+      <button 
+        onClick={onNewGame}
+        className="w-full bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium py-2 px-4 rounded transition-colors flex items-center justify-center gap-2"
+      >
+        <Plus size={16} />
+        Create New Game
+      </button>
+
       <div className="bg-yellow-900/50 border border-yellow-700/50 rounded p-3">
         <div className="flex items-start space-x-2">
           <span className="text-yellow-500 text-lg">⚠️</span>

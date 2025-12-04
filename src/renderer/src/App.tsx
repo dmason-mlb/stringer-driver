@@ -102,6 +102,7 @@ function App(): JSX.Element {
         onGameSetup={handleGameSetup} 
         loadingTabs={loadingTabs}
         setTabLoading={handleSetTabLoading}
+        onNewGame={handleAddTab}
       />
       
       <div className="flex-1 flex flex-col h-full overflow-hidden">

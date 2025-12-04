@@ -367,6 +367,205 @@ export const runInitialSetup = async (service: AutomationService): Promise<strin
             
             log('Initial Setup sequence completed.');
 
+            // --- Post-Setup Automation ---
+            function showChoiceAlert(message, btn1Text, btn2Text, onBtn1, onBtn2) {
+                const overlay = document.createElement('div');
+                overlay.id = 'automation-alert-overlay';
+                overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:99999;display:flex;justify-content:center;align-items:center;';
+                
+                const box = document.createElement('div');
+                box.style.cssText = 'background:white;padding:20px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.2);text-align:center;min-width:300px;color:black;font-family:sans-serif;';
+                
+                const msg = document.createElement('p');
+                msg.textContent = message;
+                msg.style.cssText = 'margin-bottom:20px;font-size:16px;color:#333;white-space: pre-wrap;';
+                
+                const btnContainer = document.createElement('div');
+                btnContainer.style.cssText = 'display:flex;justify-content:space-around;gap:10px;';
+                
+                const btn1 = document.createElement('button');
+                btn1.textContent = btn1Text;
+                btn1.style.cssText = 'padding:8px 16px;background:#2196F3;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:bold;font-size:14px;';
+                
+                const btn2 = document.createElement('button');
+                btn2.textContent = btn2Text;
+                btn2.style.cssText = 'padding:8px 16px;background:#e0e0e0;color:#333;border:none;border-radius:4px;cursor:pointer;font-size:14px;';
+                
+                btn1.onclick = async () => {
+                    document.body.removeChild(overlay);
+                    if (onBtn1) {
+                        try {
+                            await onBtn1();
+                        } catch (err) {
+                            console.error(err);
+                            alert('Automation Error: ' + err.message);
+                        }
+                    }
+                };
+                
+                btn2.onclick = () => {
+                    document.body.removeChild(overlay);
+                    if (onBtn2) onBtn2();
+                };
+                
+                btnContainer.appendChild(btn1);
+                btnContainer.appendChild(btn2);
+                box.appendChild(msg);
+                box.appendChild(btnContainer);
+                overlay.appendChild(box);
+                document.body.appendChild(overlay);
+            }
+
+            showChoiceAlert("Initial setup is complete", "Send Warmups", "Cancel", async () => {
+                 log('Starting Send Warmups sequence...');
+                 
+                 try {
+                     // 1. Click Network Status
+                     const networkStatus = document.querySelector('#mainContainer > core-menu > div.app-status-pregame > div.connection-status-container > div:nth-child(1) > span.is-editable');
+                     if(networkStatus) {
+                         networkStatus.click();
+                         log('Clicked Network Status');
+                     } else throw new Error("Network Status link not found");
+                     
+                     await delay(1000);
+                     
+                     // 2. Click Yes on alertify
+                     const yesBtn1 = document.querySelector('#alertify-ok');
+                     if(yesBtn1) {
+                         yesBtn1.click();
+                         log('Clicked Yes (1)');
+                     } else throw new Error("First Yes button not found");
+                     
+                     await delay(1000);
+                     
+                     // 3. Check checkboxes
+                     const dfe = document.querySelector('#dfe_connection_toggle');
+                     if(dfe) {
+                        if(!dfe.checked) dfe.click();
+                        log('Checked DFE toggle');
+                     } else log('DFE toggle not found');
+                     
+                     const trackman = document.querySelector('#trackman_toggle');
+                     if(trackman) {
+                        if(!trackman.checked) trackman.click();
+                        log('Checked Trackman toggle');
+                     } else log('Trackman toggle not found');
+                     
+                     await delay(500);
+                     
+                     // 4. Commit
+                     const commitBtn = document.querySelector('#templated-dialog > div.templated-dialog-content > div > form > div.pure-button.submit');
+                     if(commitBtn) {
+                         commitBtn.click();
+                         log('Clicked Commit Connection');
+                     } else throw new Error("Commit Connection button not found");
+                     
+                     await delay(1000);
+                     
+                     // 5. Click Send Warmups
+                     const sendWarmupsBtn = document.querySelector('#mainContainer > core-menu > div.app-status-pregame.core-selected > button');
+                     if(sendWarmupsBtn) {
+                         sendWarmupsBtn.click();
+                         log('Clicked Send Warmups button');
+                     } else throw new Error("Send Warmups button not found");
+                     
+                     await delay(1000);
+                     
+                     // 6. Click Yes
+                     const yesBtn2 = document.querySelector('#alertify-ok');
+                     if(yesBtn2) {
+                         yesBtn2.click();
+                         log('Clicked Yes (2)');
+                     } else throw new Error("Second Yes button not found");
+                     
+                     await delay(1000);
+                     
+                     // 7. Show second alert
+                     showChoiceAlert("Warmups have been sent", "Start Game", "Cancel", async () => {
+                         log('Starting Start Game sequence...');
+                         
+                         try {
+                             // a. Click Play Ball
+                             const playBall = document.querySelector('#mainContainer > core-menu > button');
+                             if(playBall) {
+                                 playBall.click();
+                                 log('Clicked Play Ball');
+                             } else throw new Error("Play Ball button not found");
+                             
+                             // b. Wait for Umpire Confirmation (variable time)
+                             log('Waiting for Umpire Confirmation...');
+                             let attempts = 0;
+                             const maxAttempts = 120; // 60 seconds
+                             let umpireCommit = null;
+                             
+                             while(attempts < maxAttempts) {
+                                 umpireCommit = document.querySelector('#templated-dialog > div.templated-dialog-content > button');
+                                 if(umpireCommit && umpireCommit.offsetParent !== null) break; 
+                                 await delay(500);
+                                 attempts++;
+                             }
+                             
+                             if(umpireCommit) {
+                                 umpireCommit.click();
+                                 log('Clicked Commit Umpires');
+                             } else {
+                                 throw new Error("Commit Umpires button not found or timed out");
+                             }
+                             
+                             await delay(2000);
+                             
+                             // d. Confirm Defense
+                             log('Waiting for Confirm Defense...');
+                             attempts = 0;
+                             let defenseCommit = null;
+                             while(attempts < maxAttempts) {
+                                 defenseCommit = document.querySelector('#field-dialog > div.pure-u-1-1.baseball-interrupt-actions > span:nth-child(2) > button.commit-fielders-button.pure-button.submit.commit');
+                                 if(defenseCommit && defenseCommit.offsetParent !== null) break;
+                                 await delay(500);
+                                 attempts++;
+                             }
+                             
+                             if(defenseCommit) {
+                                 defenseCommit.click();
+                                 log('Clicked Confirm Defense');
+                             } else {
+                                 log("Confirm Defense button not found - might be skipped or timed out");
+                             }
+                             
+                             await delay(1000);
+                             
+                             // f. First Batter
+                             log('Waiting for First Batter...');
+                             attempts = 0;
+                             let firstBatter = null;
+                             while(attempts < 40) {
+                                 firstBatter = document.querySelector('#templated-dialog > div.templated-dialog-content > button.pure-button.submit.default-focus-button');
+                                 if(firstBatter && firstBatter.offsetParent !== null) break;
+                                 await delay(500);
+                                 attempts++;
+                             }
+                             
+                             if(firstBatter) {
+                                 firstBatter.click();
+                                 log('Clicked First Batter');
+                             } else {
+                                 log("First Batter button not found");
+                             }
+                             
+                             log("Automation Complete");
+                             
+                         } catch(err) {
+                             console.error("Start Game Error", err);
+                             alert("Error starting game: " + err.message);
+                         }
+                     });
+                     
+                 } catch(err) {
+                     console.error("Send Warmups Error", err);
+                     alert("Error sending warmups: " + err.message);
+                 }
+            });
+
         } catch (e) {
             console.error('Initial Setup script error:', e);
             throw e;
