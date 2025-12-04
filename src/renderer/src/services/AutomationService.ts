@@ -86,6 +86,24 @@ export class AutomationService {
   }
 
   /**
+   * Click at a relative position within an element's bounding box
+   * xPercent: 0-100 (percentage from left)
+   * yPercent: 0-100 (percentage from top)
+   */
+  async clickRelative(selector: string, xPercent: number, yPercent: number): Promise<void> {
+    const rect = await this.getBoundingBox(selector);
+    if (!rect) {
+      throw new Error(`Element not found for clickRelative: ${selector}`);
+    }
+
+    const x = Math.floor(rect.x + (rect.width * xPercent) / 100);
+    const y = Math.floor(rect.y + (rect.height * yPercent) / 100);
+
+    await this.webview.sendInputEvent({ type: 'mouseDown', x, y, button: 'left', clickCount: 1 });
+    await this.webview.sendInputEvent({ type: 'mouseUp', x, y, button: 'left', clickCount: 1 });
+  }
+
+  /**
    * Send a key press
    */
   async sendKey(key: string): Promise<void> {

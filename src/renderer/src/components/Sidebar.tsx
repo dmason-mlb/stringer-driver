@@ -1,9 +1,10 @@
 import React, { useState } from 'react'
 import { useAutomation } from '../context/AutomationContext'
 import { runInitialSetup } from '../automations/initialSetup'
-import { performStrikeout, performStrikeoutsToEndInning } from '../automations/gameEvents'
+import { performStrikeout, performStrikeoutsToEndInning, performHit } from '../automations/gameEvents'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ChevronLeft } from 'lucide-react'
+import mlbLogo from '../assets/mlb-logo.svg'
 
 type View = 'main' | 'advance' | 'individual';
 
@@ -48,6 +49,18 @@ export const Sidebar = () => {
           break;
         case "Strikeouts to End Inning":
           await performStrikeoutsToEndInning(service);
+          break;
+        case "Single":
+          await performHit(service, 'Single');
+          break;
+        case "Double":
+          await performHit(service, 'Double');
+          break;
+        case "Triple":
+          await performHit(service, 'Triple');
+          break;
+        case "Home Run":
+          await performHit(service, 'Home Run');
           break;
         default:
           console.log(`Action: ${action} not implemented yet`);
@@ -193,7 +206,8 @@ export const Sidebar = () => {
 
   return (
     <div className="w-64 h-full bg-gray-800 text-white flex flex-col border-r border-gray-700 overflow-hidden">
-      <div className="p-4 border-b border-gray-700 z-10 bg-gray-800">
+      <div className="p-4 border-b border-gray-700 z-10 bg-gray-800 flex items-center gap-3">
+        <img src={mlbLogo} alt="MLB Logo" className="h-8 w-auto" />
         <h1 className="text-xl font-bold">Stringer Driver</h1>
       </div>
       
