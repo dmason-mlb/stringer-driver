@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useAutomation } from '../context/AutomationContext'
 import { runInitialSetup } from '../automations/initialSetup'
+import { performStrikeout, performStrikeoutsToEndInning } from '../automations/gameEvents'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ChevronLeft } from 'lucide-react'
 
@@ -10,6 +11,7 @@ export const Sidebar = () => {
   const { service } = useAutomation();
   const [currentView, setCurrentView] = useState<View>('main');
   const [direction, setDirection] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
 
   const navigate = (newView: View, newDirection: number) => {
     setDirection(newDirection);
@@ -29,6 +31,32 @@ export const Sidebar = () => {
         service.openDevTools();
     } else {
         alert('Automation service not ready');
+    }
+  };
+
+  const handleGameAction = async (action: string) => {
+    if (!service) {
+      alert('Automation service not ready');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      switch (action) {
+        case "Strikeout":
+          await performStrikeout(service);
+          break;
+        case "Strikeouts to End Inning":
+          await performStrikeoutsToEndInning(service);
+          break;
+        default:
+          console.log(`Action: ${action} not implemented yet`);
+      }
+    } catch (error) {
+      console.error('Action failed:', error);
+      alert(`Action failed: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -55,6 +83,7 @@ export const Sidebar = () => {
         <button 
           onClick={onBack}
           className="p-1 hover:bg-gray-700 rounded-full transition-colors"
+          disabled={isLoading}
         >
           <ChevronLeft size={20} />
         </button>
@@ -85,13 +114,15 @@ export const Sidebar = () => {
         <h2 className="text-sm font-semibold text-gray-400">Automation</h2>
         <button 
           onClick={handleInitialSetup}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded transition-colors"
+          disabled={isLoading}
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded transition-colors disabled:opacity-50"
         >
           Initial Setup
         </button>
         <button 
           onClick={() => navigate('advance', 1)}
-          className="w-full bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 px-4 rounded transition-colors"
+          disabled={isLoading}
+          className="w-full bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 px-4 rounded transition-colors disabled:opacity-50"
         >
           Advance Game
         </button>
@@ -115,7 +146,8 @@ export const Sidebar = () => {
       
       <button 
         onClick={() => navigate('individual', 1)}
-        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-2 px-4 rounded transition-colors"
+        disabled={isLoading}
+        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-2 px-4 rounded transition-colors disabled:opacity-50"
       >
         Individual Play
       </button>
@@ -143,8 +175,13 @@ export const Sidebar = () => {
           {actions.map((action) => (
             <button 
               key={action}
-              className="w-full bg-gray-700 hover:bg-gray-600 text-white text-xs font-medium py-2 px-3 rounded transition-colors text-left"
-              onClick={() => console.log(`Action: ${action}`)} // Placeholder logic
+              disabled={isLoading}
+              className={`w-full text-white text-xs font-medium py-2 px-3 rounded transition-colors text-left ${
+                isLoading 
+                  ? 'bg-gray-700 opacity-50 cursor-not-allowed' 
+                  : 'bg-gray-700 hover:bg-gray-600'
+              }`}
+              onClick={() => handleGameAction(action)}
             >
               {action}
             </button>

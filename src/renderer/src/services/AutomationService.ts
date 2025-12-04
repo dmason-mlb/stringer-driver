@@ -38,12 +38,12 @@ export class AutomationService {
   }
 
   /**
-   * Click an element by selector
+   * Click an element by selector using JS click()
    */
   async click(selector: string): Promise<void> {
     await this.execute(`
       (function() {
-        const el = document.querySelector('${selector.replace(/'/g, "\\'")}'');
+        const el = document.querySelector('${selector.replace(/'/g, "\\'")}');
         if (el) {
           el.click();
           return true;
@@ -54,14 +54,56 @@ export class AutomationService {
   }
 
   /**
+   * Get element bounding box
+   */
+  async getBoundingBox(selector: string): Promise<{ x: number, y: number, width: number, height: number } | null> {
+    return this.execute(`
+      (function() {
+        const el = document.querySelector('${selector.replace(/'/g, "\\'")}');
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+        }
+        return null;
+      })()
+    `);
+  }
+
+  /**
+   * Click the center of an element using Input Events (simulating real mouse)
+   */
+  async clickCenter(selector: string): Promise<void> {
+    const rect = await this.getBoundingBox(selector);
+    if (!rect) {
+      throw new Error(`Element not found for clickCenter: ${selector}`);
+    }
+
+    const x = Math.floor(rect.x + rect.width / 2);
+    const y = Math.floor(rect.y + rect.height / 2);
+
+    await this.webview.sendInputEvent({ type: 'mouseDown', x, y, button: 'left', clickCount: 1 });
+    await this.webview.sendInputEvent({ type: 'mouseUp', x, y, button: 'left', clickCount: 1 });
+  }
+
+  /**
+   * Send a key press
+   */
+  async sendKey(key: string): Promise<void> {
+    const lowerKey = key.toLowerCase();
+    await this.webview.sendInputEvent({ type: 'keyDown', keyCode: lowerKey });
+    await this.webview.sendInputEvent({ type: 'char', keyCode: lowerKey });
+    await this.webview.sendInputEvent({ type: 'keyUp', keyCode: lowerKey });
+  }
+
+  /**
    * Type text into an input
    */
   async type(selector: string, text: string): Promise<void> {
     await this.execute(`
       (function() {
-        const el = document.querySelector('${selector.replace(/'/g, "\\'")}'');
+        const el = document.querySelector('${selector.replace(/'/g, "\\'")}');
         if (el) {
-          el.value = '${text.replace(/'/g, "\\'")}'';
+          el.value = '${text.replace(/'/g, "\\'")}';
           el.dispatchEvent(new Event('input', { bubbles: true }));
           el.dispatchEvent(new Event('change', { bubbles: true }));
           return true;
@@ -89,7 +131,7 @@ export class AutomationService {
   async getText(selector: string): Promise<string> {
     return this.execute<string>(`
       (function() {
-        const el = document.querySelector('${selector.replace(/'/g, "\\'")}'');
+        const el = document.querySelector('${selector.replace(/'/g, "\\'")}');
         return el ? el.innerText : '';
       })()
     `);
