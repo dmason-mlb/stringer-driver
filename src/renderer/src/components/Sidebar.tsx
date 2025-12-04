@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { useAutomation } from '../context/AutomationContext'
 import { runInitialSetup } from '../automations/initialSetup'
-import { performStrikeout, performStrikeoutsToEndInning, performHit, performOut } from '../automations/gameEvents'
+import { performStrikeout, performStrikeoutsToEndInning, performHit, performOut, performWalk } from '../automations/gameEvents'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ChevronLeft } from 'lucide-react'
 import mlbLogo from '../assets/mlb-logo.svg'
@@ -49,6 +49,9 @@ export const Sidebar = () => {
           break;
         case "Strikeouts to End Inning":
           await performStrikeoutsToEndInning(service);
+          break;
+        case "Walk":
+          await performWalk(service);
           break;
         case "Single":
           await performHit(service, 'Single');
@@ -182,7 +185,7 @@ export const Sidebar = () => {
 
   const IndividualPlayView = () => {
     const actions = [
-      "Strikeout", "Strikeouts to End Inning", "Single", "Double", 
+      "Strikeout", "Strikeouts to End Inning", "Walk", "Single", "Double", 
       "Triple", "Home Run", "Fly Out", "Ground Out"
     ];
 

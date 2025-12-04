@@ -23,7 +23,10 @@ const SELECTORS = {
   RUNNER_THIRD: '.bases_container .base.third.active',
 
   // Special Strikeout Commit (when runners on base)
-  COMMIT_RUNNERS_STRIKEOUT: '#runner-dialog > div.pure-u-1-1.baseball-interrupt-actions > span.button-success.commit-runners-button-wrap.no-sub > button'
+  COMMIT_RUNNERS_STRIKEOUT: '#runner-dialog > div.pure-u-1-1.baseball-interrupt-actions > span.button-success.commit-runners-button-wrap.no-sub > button',
+  
+  // Walk Selectors
+  COMMIT_PITCH_WALK: '#panelMenuCommitBtnLabel'
 };
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -316,6 +319,38 @@ export async function performOut(service: AutomationService, outType: OutType): 
   // In performStrikeout we check outs. Here we assume user knows what they are doing or we handle timeout gracefully.
   console.log('Checking for Next Batter button...');
   const nextBatterBtnExists = await service.waitFor(SELECTORS.NEXT_BATTER_BUTTON, 5000);
+  if (nextBatterBtnExists) {
+    await service.click(SELECTORS.NEXT_BATTER_BUTTON);
+    console.log('Clicked Next Batter');
+  } else {
+    console.warn('Next Batter dialog did not appear');
+  }
+}
+
+export async function performWalk(service: AutomationService): Promise<void> {
+  console.log('Starting Walk sequence...');
+  await ensurePitchMenu(service);
+
+  // Press 'p' then 'h'
+  await service.sendKey('p');
+  await delay(200);
+  await service.sendKey('h');
+  
+  // Wait for/Click "Commit Pitch" button
+  console.log('Waiting for Commit Pitch button...');
+  const commitBtnExists = await service.waitFor(SELECTORS.COMMIT_PITCH_WALK, 3000);
+  if (commitBtnExists) {
+      await service.click(SELECTORS.COMMIT_PITCH_WALK);
+      console.log('Clicked Commit Pitch (Walk)');
+  } else {
+      console.warn('Commit Pitch button (Walk) not found');
+  }
+  
+  await delay(1000);
+
+  // Click Next Batter
+  console.log('Checking for Next Batter button...');
+  const nextBatterBtnExists = await service.waitFor(SELECTORS.NEXT_BATTER_BUTTON, 3000);
   if (nextBatterBtnExists) {
     await service.click(SELECTORS.NEXT_BATTER_BUTTON);
     console.log('Clicked Next Batter');
