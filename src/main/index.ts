@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, session } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
@@ -66,5 +66,41 @@ app.on('window-all-closed', () => {
   }
 })
 
-// IPC Handlers will go here
+// IPC Handlers
+ipcMain.handle('copy-cookies', async (_, sourcePartition: string, targetPartition: string) => {
+  try {
+    console.log(`Copying cookies from ${sourcePartition} to ${targetPartition}`);
+    const sourceSession = session.fromPartition(sourcePartition);
+    const targetSession = session.fromPartition(targetPartition);
+    
+    const cookies = await sourceSession.cookies.get({});
+    
+    for (const cookie of cookies) {
+      // Construct URL from domain (simplistic approach, usually works for standard domains)
+      const protocol = cookie.secure ? 'https://' : 'http://';
+      const domain = cookie.domain ? cookie.domain.replace(/^\./, '') : '';
+      const path = cookie.path || '/';
+      const url = `${protocol}${domain}${path}`;
 
+      const setDetails: Electron.CookiesSetDetails = {
+        url,
+        name: cookie.name,
+        value: cookie.value,
+        domain: cookie.domain,
+        path: cookie.path,
+        secure: cookie.secure,
+        httpOnly: cookie.httpOnly,
+        expirationDate: cookie.expirationDate,
+        sameSite: cookie.sameSite as any
+      };
+      
+      await targetSession.cookies.set(setDetails);
+    }
+    
+    console.log(`Copied ${cookies.length} cookies.`);
+    return true;
+  } catch (error) {
+    console.error('Cookie copy failed:', error);
+    throw error;
+  }
+});

@@ -20,12 +20,27 @@ function App(): JSX.Element {
     }
   }, [activeTabId, setWebview]);
 
-  const handleAddTab = () => {
+  const handleAddTab = async () => {
     const newId = String(Date.now());
+    const newPartition = `persist:stringer-${newId}`;
+
+    // Copy cookies from active tab if it exists
+    if (tabs.length > 0) {
+      const activeTab = tabs.find(t => t.id === activeTabId);
+      if (activeTab) {
+         try {
+           // @ts-ignore (window.electron is exposed via preload)
+           await window.electron.ipcRenderer.invoke('copy-cookies', activeTab.partition, newPartition);
+         } catch (e) {
+           console.error("Failed to copy cookies", e);
+         }
+      }
+    }
+
     const newTab: Tab = {
       id: newId,
       name: 'New Stringer Game',
-      partition: `persist:stringer-${newId}`
+      partition: newPartition
     };
     setTabs(prev => [...prev, newTab]);
     setActiveTabId(newId);
