@@ -4,6 +4,7 @@ import { runInitialSetup } from '../automations/initialSetup'
 import { performStrikeout, performStrikeoutsToEndInning, performHit, performOut, performWalk, performABSChallenge, performManagerChallenge, getScore } from '../automations/gameEvents'
 import { performAdvanceTwoFullInnings } from '../automations/advanceGame'
 import { performFullGameSimulation } from '../automations/fullGame'
+import { performRandomGameSimulation } from '../automations/randomGame'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ChevronLeft, Plus } from 'lucide-react'
 import mlbLogo from '../assets/mlb-logo.svg'
@@ -108,7 +109,7 @@ export const Sidebar = ({ activeTabId, activeTabName, onGameSetup, loadingTabs, 
   const onSimulateGame = async (targetHome: number, targetVisitor: number) => {
       setSimulationDialogOpen(false);
       const operationTabId = activeTabId;
-      
+
       if (!service) return;
 
       setTabLoading(operationTabId, true);
@@ -118,6 +119,25 @@ export const Sidebar = ({ activeTabId, activeTabName, onGameSetup, loadingTabs, 
       } catch (error) {
           console.error("Game Simulation Failed", error);
           alert(`Game Simulation Failed: ${error instanceof Error ? error.message : String(error)}`);
+      } finally {
+          setTabLoading(operationTabId, false);
+      }
+  };
+
+  const handleRandomGame9Innings = async () => {
+      if (!service) {
+          alert('Automation service not ready');
+          return;
+      }
+
+      const operationTabId = activeTabId;
+      setTabLoading(operationTabId, true);
+      try {
+          await performRandomGameSimulation(service);
+          alert("Random Outcome Game Simulation Completed!");
+      } catch (error) {
+          console.error("Random Game Simulation Failed", error);
+          alert(`Random Game Simulation Failed: ${error instanceof Error ? error.message : String(error)}`);
       } finally {
           setTabLoading(operationTabId, false);
       }
@@ -284,7 +304,7 @@ export const Sidebar = ({ activeTabId, activeTabName, onGameSetup, loadingTabs, 
         Individual Play
       </button>
       
-      <button 
+      <button
         onClick={handleStandardGame9Innings}
         disabled={isLoading}
         className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium py-2 px-4 rounded transition-colors disabled:opacity-50"
@@ -292,7 +312,15 @@ export const Sidebar = ({ activeTabId, activeTabName, onGameSetup, loadingTabs, 
         Standard Game - 9 innings
       </button>
 
-      <button 
+      <button
+        onClick={handleRandomGame9Innings}
+        disabled={isLoading}
+        className="w-full bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium py-2 px-4 rounded transition-colors disabled:opacity-50"
+      >
+        Random Outcome Game (9 innings)
+      </button>
+
+      <button
         onClick={() => handleGameAction("Advance Two Full Innings")}
         disabled={isLoading}
         className="w-full bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium py-2 px-4 rounded transition-colors disabled:opacity-50"
