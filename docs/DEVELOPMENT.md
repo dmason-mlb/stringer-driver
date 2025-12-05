@@ -31,7 +31,11 @@ npm run dev
 2. Use the `AutomationService` to interact with the webview.
    ```typescript
    export const myScript = async (service: AutomationService) => {
+     // Standard click
      await service.click('#my-button');
+     
+     // Click utilizing Input Events (useful for non-standard elements)
+     await service.clickCenter('.canvas-element');
    };
    ```
 3. Import the script in `Sidebar.tsx` and add a button to trigger it.
