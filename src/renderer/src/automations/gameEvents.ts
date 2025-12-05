@@ -41,8 +41,6 @@ const SELECTORS = {
   HOME_SCORE: '#matchup > div:nth-child(2) > div.matchup-team.matchup-home-team > span.matchup-runs'
 };
 
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
 export async function getRunnersOnBase(service: AutomationService): Promise<{ first: boolean, second: boolean, third: boolean }> {
   const [first, second, third] = await Promise.all([
     service.exists(SELECTORS.RUNNER_FIRST),
@@ -95,31 +93,41 @@ export async function getGameState(service: AutomationService): Promise<{ strike
   return { strikes: 0, outs: 0 };
 }
 
-async function ensurePitchMenu(service: AutomationService): Promise<void> {
-  // 1. Click Pitch Area to open menu
-  await service.clickCenter(SELECTORS.PITCH_AREA);
-  await delay(500); // Wait for UI response
+async function ensurePitchMenu(service: AutomationService, maxRetries = 3): Promise<void> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    // 1. Click Pitch Area to open menu
+    await service.clickCenter(SELECTORS.PITCH_AREA);
+    await service.delay(500); // Wait for UI response
 
-  // 2. Check for First Pitch Dialog
-  const dialogExists = await service.exists(SELECTORS.FIRST_PITCH_DIALOG);
-  if (dialogExists) {
-    const headerText = await service.getText(SELECTORS.FIRST_PITCH_HEADER);
-    if (headerText.includes('First Pitch')) {
-      console.log('Handling First Pitch dialog');
-      await service.click(SELECTORS.FIRST_PITCH_COMMIT);
-      await delay(1000); // Wait for dialog to close
-      
-      // Click pitch area again to actually bring up the menu if it wasn't a pitch
-      await service.clickCenter(SELECTORS.PITCH_AREA);
-      await delay(500);
+    // 2. Check for First Pitch Dialog
+    const dialogExists = await service.exists(SELECTORS.FIRST_PITCH_DIALOG);
+    if (dialogExists) {
+      const headerText = await service.getText(SELECTORS.FIRST_PITCH_HEADER);
+      if (headerText.includes('First Pitch')) {
+        console.log('Handling First Pitch dialog');
+        await service.click(SELECTORS.FIRST_PITCH_COMMIT);
+        await service.delay(1500); // Wait for dialog to close (increased from 1000ms)
+
+        // Click pitch area again to actually bring up the menu if it wasn't a pitch
+        await service.clickCenter(SELECTORS.PITCH_AREA);
+        await service.delay(500);
+      }
+    }
+
+    // 3. Wait for Pitch Menu
+    const menuOpen = await service.waitFor(SELECTORS.PITCH_MENU, 3000);
+    if (menuOpen) {
+      return; // Success
+    }
+
+    // Retry with backoff
+    if (attempt < maxRetries) {
+      console.log(`Pitch menu not found, retrying (attempt ${attempt}/${maxRetries})...`);
+      await service.delay(1000 * attempt); // Exponential backoff
     }
   }
 
-  // 3. Wait for Pitch Menu
-  const menuOpen = await service.waitFor(SELECTORS.PITCH_MENU, 3000);
-  if (!menuOpen) {
-    throw new Error('Pitch menu did not appear after clicking field');
-  }
+  throw new Error('Pitch menu did not appear after clicking field');
 }
 
 export async function performStrikeout(service: AutomationService): Promise<void> {
@@ -129,25 +137,26 @@ export async function performStrikeout(service: AutomationService): Promise<void
   console.log(`Starting strikeout sequence. Current: ${currentStrikes} strikes, ${currentOuts} outs. Needed: ${strikesNeeded} strikes.`);
 
   for (let i = 0; i < strikesNeeded; i++) {
+    await service.checkpoint(); // Check for pause/cancel
     console.log(`Performing strike ${i + 1} of ${strikesNeeded}`);
-    
+
     await ensurePitchMenu(service);
 
     // 4. Perform Pitch Sequence: P -> S -> S
     await service.sendKey('p');
-    await delay(200);
+    await service.delay(200);
     await service.sendKey('s');
-    await delay(200);
+    await service.delay(200);
     await service.sendKey('s');
     
     // Wait for pitch to process
-    await delay(1500);
+    await service.delay(1500);
   }
 
   // 5. Finalize Strikeout
   console.log('Finalizing strikeout with K event');
   await service.sendKey('k');
-  await delay(1000);
+  await service.delay(1000);
 
   // 6. Handle Runners Commit (if runners on base and not ending inning)
   if (currentOuts < 2) {
@@ -160,7 +169,7 @@ export async function performStrikeout(service: AutomationService): Promise<void
       if (runnerCommitExists) {
         await service.click(SELECTORS.COMMIT_RUNNERS_STRIKEOUT);
         console.log('Clicked Runner Commit (Strikeout)');
-        await delay(1000);
+        await service.delay(1000);
       } else {
         console.warn('Runner Commit button (Strikeout) expected but not found');
       }
@@ -190,13 +199,14 @@ export async function performStrikeoutsToEndInning(service: AutomationService): 
   console.log(`Current outs: ${initialOuts}. Performing ${outsNeeded} strikeouts.`);
 
   for (let i = 0; i < outsNeeded; i++) {
+    await service.checkpoint(); // Check for pause/cancel
     console.log(`Strikeout sequence ${i + 1} of ${outsNeeded}`);
     await performStrikeout(service);
     
     // Wait for UI to settle/transition to next batter if we are not at the last one
     if (i < outsNeeded - 1) {
       console.log('Waiting for next batter transition...');
-      await delay(3000); 
+      await service.delay(3000); 
     }
   }
   console.log('Strikeouts to End Inning completed.');
@@ -226,27 +236,31 @@ export async function performHit(service: AutomationService, hitType: HitType): 
 
   // 2. Send keys: 'p' -> 'x' -> ('n' or 'r') -> ('s'/'d'/'t'/'h')
   await service.sendKey('p');
-  await delay(200);
+  await service.delay(200);
   await service.sendKey('x');
-  await delay(200);
+  await service.delay(200);
 
   if (hitType === 'Home Run') {
     await service.sendKey('r'); // r for Home Run
-    await delay(200);
+    await service.delay(200);
     await service.sendKey('h'); // h for Home Run
   } else {
     // Use 'r' if a run scores, otherwise 'n'
     const runKey = willScore ? 'r' : 'n';
     console.log(`Sending run key: ${runKey} (willScore: ${willScore})`);
     await service.sendKey(runKey);
-    await delay(200);
+    await service.delay(200);
     
     const typeKey = hitType === 'Single' ? 's' : hitType === 'Double' ? 'd' : 't';
     await service.sendKey(typeKey);
   }
-  await delay(1000); // Wait for hit location overlay
+  // 3. Wait for hit location overlay and click
+  const hitLocationSelector = hitType === 'Home Run' ? SELECTORS.HIT_LOCATION_HR_PATH : SELECTORS.HIT_LOCATION;
+  const hitLocationExists = await service.waitFor(hitLocationSelector, 5000);
+  if (!hitLocationExists) {
+    throw new Error('Hit location overlay did not appear');
+  }
 
-  // 3. Click Hit Location
   if (hitType === 'Home Run') {
     // Click just inside top-left of the HR path (5% down, 5% right)
     await service.clickRelative(SELECTORS.HIT_LOCATION_HR_PATH, 5, 5);
@@ -254,21 +268,21 @@ export async function performHit(service: AutomationService, hitType: HitType): 
     // Click exact center for S/D/T
     await service.clickCenter(SELECTORS.HIT_LOCATION);
   }
-  await delay(1000);
+  await service.delay(1000);
 
   // 4. Send key: 'l' (Line drive?)
   await service.sendKey('l');
-  await delay(1500);
+  await service.delay(1500);
 
   // 5. Fielder Selection (for non-HR)
   if (hitType !== 'Home Run') {
     console.log('Selecting fielders...');
     await service.click(SELECTORS.CENTER_FIELDER);
-    await delay(500);
+    await service.delay(500);
     await service.click(SELECTORS.FIRST_BASEMAN);
-    await delay(500);
+    await service.delay(500);
     await service.click(SELECTORS.COMMIT_FIELDERS);
-    await delay(1000);
+    await service.delay(1000);
   }
 
   // 6. Click Commit Runners
@@ -279,7 +293,7 @@ export async function performHit(service: AutomationService, hitType: HitType): 
   } else {
     console.warn('Commit Runners button not found');
   }
-  await delay(1500);
+  await service.delay(1500);
 
   // 7. Click Next Batter
   console.log('Checking for Next Batter button...');
@@ -289,7 +303,7 @@ export async function performHit(service: AutomationService, hitType: HitType): 
   
   if (nextBatterBtnExists) {
     // Add a small delay to ensure button is ready
-    await delay(500);
+    await service.delay(500);
     await service.click(SELECTORS.NEXT_BATTER_BUTTON);
     console.log('Clicked Next Batter');
   } else {
@@ -308,39 +322,79 @@ export async function performOut(service: AutomationService, outType: OutType): 
   
   // 2. Send keys: 'p' -> 'x' -> 'o' -> 'o'
   await service.sendKey('p');
-  await delay(200);
+  await service.delay(200);
   await service.sendKey('x');
-  await delay(200);
+  await service.delay(200);
   await service.sendKey('o');
-  await delay(200);
+  await service.delay(200);
   await service.sendKey('o');
-  await delay(1000); // Wait for hit location overlay
-  
-  // 3. Click Hit Location
-  await service.clickCenter(SELECTORS.HIT_LOCATION);
-  await delay(1000);
 
-  // 4. Send key: 'f' (Fly Out) or 'g' (Ground Out)
+  // 3. Wait for either hit location overlay OR out outcome dialog (when runners on base)
+  // Poll for up to 5 seconds checking for either element
+  let hitLocationFound = false;
+  let outOutcomeDialogHandled = false;
+
+  for (let attempt = 0; attempt < 25; attempt++) {
+    await service.checkpoint(); // Check for pause/cancel
+    await service.delay(200);
+
+    // First check if hit location appeared (normal case, no runners)
+    const hitLocationExists = await service.exists(SELECTORS.HIT_LOCATION);
+    if (hitLocationExists) {
+      console.log('Hit location overlay appeared directly');
+      hitLocationFound = true;
+      break;
+    }
+
+    // Check if out outcome dialog appeared (runners on base case)
+    const dialogExists = await service.exists(SELECTORS.FIRST_PITCH_DIALOG);
+    if (dialogExists) {
+      const headerText = await service.getText(SELECTORS.FIRST_PITCH_HEADER);
+      if (headerText.toLowerCase().includes('hit in play') || headerText.toLowerCase().includes('out')) {
+        console.log(`Out outcome dialog detected (header: "${headerText}"), selecting Batter Out`);
+        await service.sendKey('o'); // Select "o - Batter Out"
+        outOutcomeDialogHandled = true;
+        break;
+      }
+    }
+  }
+
+  // 4. If we handled the out outcome dialog, now wait for hit location
+  if (outOutcomeDialogHandled) {
+    const hitLocationExists = await service.waitFor(SELECTORS.HIT_LOCATION, 5000);
+    if (!hitLocationExists) {
+      throw new Error('Hit location overlay did not appear after selecting Batter Out');
+    }
+    hitLocationFound = true;
+  }
+
+  if (!hitLocationFound) {
+    throw new Error('Hit location overlay did not appear');
+  }
+  await service.clickCenter(SELECTORS.HIT_LOCATION);
+  await service.delay(1000);
+
+  // 5. Send key: 'f' (Fly Out) or 'g' (Ground Out)
   const outKey = outType === 'Fly Out' ? 'f' : 'g';
   await service.sendKey(outKey);
-  await delay(1500); // Wait for fielder selection dialog
+  await service.delay(1500); // Wait for fielder selection dialog
 
-  // 5. Fielder Selection
+  // 6. Fielder Selection
   console.log('Selecting fielders...');
   // (8) is Center Fielder
   await service.click(SELECTORS.CENTER_FIELDER);
-  await delay(500);
+  await service.delay(500);
   
   if (outType === 'Ground Out') {
     // (3) is First Baseman
     await service.click(SELECTORS.FIRST_BASEMAN);
-    await delay(500);
+    await service.delay(500);
   }
 
   await service.click(SELECTORS.COMMIT_FIELDERS);
-  await delay(1500); // Wait for next step
+  await service.delay(1500); // Wait for next step
 
-  // 6. Handle Runners Commit (if runners on base)
+  // 7. Handle Runners Commit (if runners on base)
   const runners = await getRunnersOnBase(service);
   const anyRunners = runners.first || runners.second || runners.third;
 
@@ -350,13 +404,13 @@ export async function performOut(service: AutomationService, outType: OutType): 
       if (commitRunnersExists) {
         await service.click(SELECTORS.COMMIT_RUNNERS);
         console.log('Clicked Runner Commit');
-        await delay(1500);
+        await service.delay(1500);
       } else {
          console.warn('Runner Commit button expected but not found, or not needed');
       }
   }
   
-  // 7. Click Next Batter (check if outs < 3, but we don't track outs strictly here locally for flow control inside the function, we rely on UI)
+  // 8. Click Next Batter (check if outs < 3, but we don't track outs strictly here locally for flow control inside the function, we rely on UI)
   // Note: If it's the 3rd out, "Next Batter" might not appear? Or it might be "End Inning"?
   // In performStrikeout we check outs. Here we assume user knows what they are doing or we handle timeout gracefully.
   console.log('Checking for Next Batter button...');
@@ -375,7 +429,7 @@ export async function performWalk(service: AutomationService): Promise<void> {
 
   // Press 'p' then 'h'
   await service.sendKey('p');
-  await delay(200);
+  await service.delay(200);
   await service.sendKey('h');
   
   // Wait for/Click "Commit Pitch" button
@@ -388,7 +442,7 @@ export async function performWalk(service: AutomationService): Promise<void> {
       console.warn('Commit Pitch button (Walk) not found');
   }
   
-  await delay(1000);
+  await service.delay(1000);
 
   // Click Next Batter
   console.log('Checking for Next Batter button...');
@@ -408,12 +462,12 @@ export async function performABSChallenge(service: AutomationService): Promise<v
   
   // Sequence: p -> b -> b
   await service.sendKey('p');
-  await delay(200);
+  await service.delay(200);
   await service.sendKey('b');
-  await delay(200);
+  await service.delay(200);
   await service.sendKey('b');
   
-  await delay(1500); // Wait for modals/buttons
+  await service.delay(1500); // Wait for modals/buttons
   
   console.log('Waiting for ABS Challenge button...');
   const absBtnExists = await service.waitFor(SELECTORS.ABS_CHALLENGE_BUTTON, 3000);
@@ -431,7 +485,7 @@ export async function performManagerChallenge(service: AutomationService): Promi
 
   // 1. Perform Single Hit
   await performHit(service, 'Single');
-  await delay(1000);
+  await service.delay(1000);
 
   // 2. Read Inning Status
   let isTopInning = false;
@@ -446,7 +500,7 @@ export async function performManagerChallenge(service: AutomationService): Promi
   // 3. Click Review Button
   console.log('Clicking Review button...');
   await service.click(SELECTORS.REVIEW_BUTTON);
-  await delay(1500);
+  await service.delay(1500);
 
   // 4. Select Team
   const teamValue = isTopInning ? 'home_team' : 'away_team';
@@ -464,7 +518,7 @@ export async function performManagerChallenge(service: AutomationService): Promi
     })()
   `);
   
-  await delay(500);
+  await service.delay(500);
 
   await service.execute(`
     (function() {
@@ -481,7 +535,7 @@ export async function performManagerChallenge(service: AutomationService): Promi
     })()
   `);
   
-  await delay(500);
+  await service.delay(500);
 
   // 5. Select Reason: Close play at 1st (F)
   console.log('Selecting Reason: Close play at 1st (F)...');
@@ -498,7 +552,7 @@ export async function performManagerChallenge(service: AutomationService): Promi
     })()
   `);
 
-  await delay(500);
+  await service.delay(500);
 
   await service.execute(`
     (function() {
@@ -513,12 +567,12 @@ export async function performManagerChallenge(service: AutomationService): Promi
     })()
   `);
 
-  await delay(500);
+  await service.delay(500);
 
   // 6. Click Start Review
   console.log('Clicking Start Review...');
   await service.click(SELECTORS.REVIEW_START_BUTTON);
-  await delay(500);
+  await service.delay(500);
   
   console.log('Manager Challenge setup complete.');
 }

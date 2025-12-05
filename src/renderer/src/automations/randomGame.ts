@@ -14,8 +14,6 @@ const SELECTORS = {
     NEXT_BATTER: '#templated-dialog > div.templated-dialog-content > button.pure-button.submit.default-focus-button'
 };
 
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
 // Weighted outcome probabilities (percentages)
 // Based on MLB average at-bat outcomes
 type AtBatOutcome = 'Ground Out' | 'Strikeout' | 'Fly Out' | 'Single' | 'Walk' | 'Double' | 'Home Run' | 'Triple';
@@ -126,6 +124,8 @@ export async function performRandomGameSimulation(service: AutomationService): P
     let atBatCount = 0;
 
     while (true) {
+        await service.checkpoint(); // Check for pause/cancel
+
         // Check Game Over Conditions before starting a new at-bat
         if (inningNumber >= 9) {
             if (!isTop && currentScore.home > currentScore.visiting) {
@@ -181,14 +181,14 @@ export async function performRandomGameSimulation(service: AutomationService): P
             if (defenseBtnExists) {
                 await service.click(SELECTORS.CONFIRM_DEFENSE);
                 console.log('Clicked Confirm Defense');
-                await delay(1000);
+                await service.delay(1000);
             }
 
             const nextBatterBtnExists = await service.waitFor(SELECTORS.NEXT_BATTER, 3000);
             if (nextBatterBtnExists) {
                 await service.click(SELECTORS.NEXT_BATTER);
                 console.log('Clicked Next Batter (transition)');
-                await delay(2000);
+                await service.delay(2000);
             }
 
             // Update state for new half-inning
@@ -202,7 +202,7 @@ export async function performRandomGameSimulation(service: AutomationService): P
         }
 
         // Small delay between at-bats
-        await delay(1000);
+        await service.delay(1000);
     }
 
     // Final score

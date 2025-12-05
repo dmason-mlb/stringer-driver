@@ -6,9 +6,10 @@ import { performAdvanceTwoFullInnings } from '../automations/advanceGame'
 import { performFullGameSimulation } from '../automations/fullGame'
 import { performRandomGameSimulation } from '../automations/randomGame'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ChevronLeft, Plus } from 'lucide-react'
+import { ChevronLeft, Plus, Pause, X } from 'lucide-react'
 import mlbLogo from '../assets/mlb-logo.svg'
 import { GameSimulationDialog } from './GameSimulationDialog'
+import { PauseDialog } from './PauseDialog'
 
 type View = 'main' | 'advance' | 'individual';
 
@@ -22,7 +23,7 @@ interface SidebarProps {
 }
 
 export const Sidebar = ({ activeTabId, activeTabName, onGameSetup, loadingTabs, setTabLoading, onNewGame }: SidebarProps) => {
-  const { service } = useAutomation();
+  const { service, isPaused, startAutomation, pause, resume, cancel, resetControl } = useAutomation();
   const [currentView, setCurrentView] = useState<View>('main');
   const [direction, setDirection] = useState(0);
 
@@ -49,16 +50,22 @@ export const Sidebar = ({ activeTabId, activeTabName, onGameSetup, loadingTabs, 
 
     if (service) {
         setTabLoading(operationTabId, true);
+        startAutomation(service);
         try {
             const gameName = await runInitialSetup(service);
             if (gameName && onGameSetup) {
                 onGameSetup(operationTabId, gameName);
             }
         } catch (error) {
-            console.error('Initial setup failed:', error);
-            alert('Initial setup failed. Check console for details.');
+            if (error instanceof DOMException && error.name === 'AbortError') {
+                console.log('Initial setup cancelled by user');
+            } else {
+                console.error('Initial setup failed:', error);
+                alert('Initial setup failed. Check console for details.');
+            }
         } finally {
             setTabLoading(operationTabId, false);
+            resetControl();
         }
     } else {
         alert('Automation service not ready');
@@ -113,14 +120,20 @@ export const Sidebar = ({ activeTabId, activeTabName, onGameSetup, loadingTabs, 
       if (!service) return;
 
       setTabLoading(operationTabId, true);
+      startAutomation(service);
       try {
           await performFullGameSimulation(service, targetHome, targetVisitor);
           alert("Game Simulation Completed!");
       } catch (error) {
-          console.error("Game Simulation Failed", error);
-          alert(`Game Simulation Failed: ${error instanceof Error ? error.message : String(error)}`);
+          if (error instanceof DOMException && error.name === 'AbortError') {
+              console.log('Game simulation cancelled by user');
+          } else {
+              console.error("Game Simulation Failed", error);
+              alert(`Game Simulation Failed: ${error instanceof Error ? error.message : String(error)}`);
+          }
       } finally {
           setTabLoading(operationTabId, false);
+          resetControl();
       }
   };
 
@@ -132,14 +145,20 @@ export const Sidebar = ({ activeTabId, activeTabName, onGameSetup, loadingTabs, 
 
       const operationTabId = activeTabId;
       setTabLoading(operationTabId, true);
+      startAutomation(service);
       try {
           await performRandomGameSimulation(service);
           alert("Random Outcome Game Simulation Completed!");
       } catch (error) {
-          console.error("Random Game Simulation Failed", error);
-          alert(`Random Game Simulation Failed: ${error instanceof Error ? error.message : String(error)}`);
+          if (error instanceof DOMException && error.name === 'AbortError') {
+              console.log('Random game simulation cancelled by user');
+          } else {
+              console.error("Random Game Simulation Failed", error);
+              alert(`Random Game Simulation Failed: ${error instanceof Error ? error.message : String(error)}`);
+          }
       } finally {
           setTabLoading(operationTabId, false);
+          resetControl();
       }
   };
 
@@ -153,6 +172,7 @@ export const Sidebar = ({ activeTabId, activeTabName, onGameSetup, loadingTabs, 
     }
 
     setTabLoading(operationTabId, true);
+    startAutomation(service);
     try {
       switch (action) {
         case "Strikeout":
@@ -197,10 +217,15 @@ export const Sidebar = ({ activeTabId, activeTabName, onGameSetup, loadingTabs, 
           console.log(`Action: ${action} not implemented yet`);
       }
     } catch (error) {
-      console.error('Action failed:', error);
-      alert(`Action failed: ${error instanceof Error ? error.message : String(error)}`);
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        console.log(`Action '${action}' cancelled by user`);
+      } else {
+        console.error('Action failed:', error);
+        alert(`Action failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
     } finally {
       setTabLoading(operationTabId, false);
+      resetControl();
     }
   };
 
@@ -405,7 +430,28 @@ export const Sidebar = ({ activeTabId, activeTabName, onGameSetup, loadingTabs, 
         </AnimatePresence>
       </div>
 
-      <GameSimulationDialog 
+      {/* Automation Control Buttons - Always visible */}
+      <div className="p-4 border-t border-gray-700 space-y-2">
+        <h2 className="text-sm font-semibold text-gray-400">Automation Control</h2>
+        <button
+          onClick={pause}
+          disabled={!isLoading || isPaused}
+          className="w-full bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium py-2 px-4 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        >
+          <Pause size={16} />
+          Pause Automation
+        </button>
+        <button
+          onClick={cancel}
+          disabled={!isLoading}
+          className="w-full bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-2 px-4 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        >
+          <X size={16} />
+          Cancel Automation
+        </button>
+      </div>
+
+      <GameSimulationDialog
         isOpen={simulationDialogOpen}
         onClose={() => setSimulationDialogOpen(false)}
         onSimulate={onSimulateGame}
@@ -413,6 +459,12 @@ export const Sidebar = ({ activeTabId, activeTabName, onGameSetup, loadingTabs, 
         currentVisitingScore={dialogData.currentVisitingScore}
         homeTeamName={dialogData.homeTeam}
         visitingTeamName={dialogData.visitingTeam}
+      />
+
+      <PauseDialog
+        isOpen={isPaused}
+        onResume={resume}
+        onCancel={cancel}
       />
     </div>
   )

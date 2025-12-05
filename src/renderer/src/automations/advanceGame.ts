@@ -6,8 +6,6 @@ const SELECTORS = {
     NEXT_BATTER: '#templated-dialog > div.templated-dialog-content > button.pure-button.submit.default-focus-button'
 };
 
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
 export const performAdvanceTwoFullInnings = async (service: AutomationService) => {
   console.log('Starting Advance Two Full Innings...');
 
@@ -15,6 +13,7 @@ export const performAdvanceTwoFullInnings = async (service: AutomationService) =
   const halfInnings = 4;
 
   for (let i = 0; i < halfInnings; i++) {
+    await service.checkpoint(); // Check for pause/cancel
     console.log(`Starting half-inning ${i + 1} of ${halfInnings}`);
     
     // 1. Perform Strikeouts to End Inning
@@ -37,7 +36,7 @@ export const performAdvanceTwoFullInnings = async (service: AutomationService) =
             console.warn('Confirm Defense button not found within timeout. This might be expected if the inning transition is different or manual intervention occurred.');
         }
 
-        await delay(1000);
+        await service.delay(1000);
 
         // 3. Next Batter
         console.log('Waiting for Next Batter button...');
@@ -50,7 +49,7 @@ export const performAdvanceTwoFullInnings = async (service: AutomationService) =
             console.warn('Next Batter button not found within timeout.');
         }
         
-        await delay(2000); // Give time for the next inning to visually start
+        await service.delay(2000); // Give time for the next inning to visually start
     }
   }
   

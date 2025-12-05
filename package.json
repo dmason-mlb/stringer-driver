@@ -11,8 +11,13 @@
     "directories": {
       "buildResources": "resources"
     },
+    "afterSign": "scripts/notarize.js",
     "mac": {
       "icon": "resources/icon.icns",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "resources/entitlements.mac.plist",
+      "entitlementsInherit": "resources/entitlements.mac.plist",
       "target": [
         "dmg",
         "zip"
@@ -42,12 +47,15 @@
   "devDependencies": {
     "@electron-toolkit/preload": "^3.0.0",
     "@electron-toolkit/utils": "^3.0.0",
+    "@electron/notarize": "^3.1.1",
     "@types/node": "^18.17.5",
     "@types/react": "^18.2.20",
     "@types/react-dom": "^18.2.7",
     "@vitejs/plugin-react": "^4.0.4",
     "autoprefixer": "^10.4.15",
+    "dotenv": "^17.2.3",
     "electron": "^26.1.0",
+    "electron-builder": "^26.0.12",
     "electron-vite": "^1.0.27",
     "postcss": "^8.4.28",
     "tailwindcss": "^3.3.3",

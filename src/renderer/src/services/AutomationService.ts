@@ -1,8 +1,57 @@
 export class AutomationService {
   private webview: Electron.WebviewTag;
+  private abortSignal: AbortSignal | null = null;
+  private pausePromise: Promise<void> | null = null;
 
   constructor(webview: Electron.WebviewTag) {
     this.webview = webview;
+  }
+
+  /**
+   * Set the abort signal for cancellation
+   */
+  setAbortSignal(signal: AbortSignal | null): void {
+    console.log('[AutomationService] setAbortSignal called, signal:', signal, 'this:', this);
+    this.abortSignal = signal;
+  }
+
+  /**
+   * Set the pause promise for pausing
+   */
+  setPausePromise(promise: Promise<void> | null): void {
+    console.log('[AutomationService] setPausePromise called, promise:', promise, 'this:', this);
+    this.pausePromise = promise;
+  }
+
+  /**
+   * Check for abort or pause at a control checkpoint
+   * Throws AbortError if cancelled, blocks if paused
+   */
+  async checkpoint(): Promise<void> {
+    console.log('[AutomationService] checkpoint called, abortSignal:', this.abortSignal, 'aborted:', this.abortSignal?.aborted, 'pausePromise:', this.pausePromise);
+    if (this.abortSignal?.aborted) {
+      console.log('[AutomationService] ABORTING - signal is aborted');
+      throw new DOMException('Automation cancelled', 'AbortError');
+    }
+    if (this.pausePromise) {
+      console.log('[AutomationService] PAUSING - awaiting pause promise');
+      await this.pausePromise;
+      console.log('[AutomationService] RESUMED - pause promise resolved');
+      // Re-check abort after resuming (in case cancelled while paused)
+      if (this.abortSignal?.aborted) {
+        console.log('[AutomationService] ABORTING after resume - signal is aborted');
+        throw new DOMException('Automation cancelled', 'AbortError');
+      }
+    }
+  }
+
+  /**
+   * Interruptible delay - checks abort/pause before and after sleeping
+   */
+  async delay(ms: number): Promise<void> {
+    await this.checkpoint();
+    await new Promise(resolve => setTimeout(resolve, ms));
+    await this.checkpoint();
   }
 
   /**
@@ -132,11 +181,12 @@ export class AutomationService {
   }
 
   /**
-   * Wait for an element to appear
+   * Wait for an element to appear (supports interruption via checkpoint)
    */
   async waitFor(selector: string, timeoutMs = 5000): Promise<boolean> {
     const start = Date.now();
     while (Date.now() - start < timeoutMs) {
+        await this.checkpoint(); // Check abort/pause each iteration
         if (await this.exists(selector)) return true;
         await new Promise(resolve => setTimeout(resolve, 500));
     }

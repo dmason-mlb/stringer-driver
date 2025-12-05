@@ -14,8 +14,6 @@ const SELECTORS = {
     NEXT_BATTER: '#templated-dialog > div.templated-dialog-content > button.pure-button.submit.default-focus-button'
 };
 
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
 interface GameState {
     homeScore: number;
     visitingScore: number;
@@ -45,6 +43,8 @@ export async function performFullGameSimulation(
     // Note: If we are in the middle of an inning, we can score immediately if it's the right half.
     
     while (true) {
+        await service.checkpoint(); // Check for pause/cancel
+
         // Check Game Over Conditions
         // 1. If we are past 9th inning (or end of 9th top)
         if (inningNumber >= 9) {
@@ -132,6 +132,7 @@ export async function performFullGameSimulation(
 
         // EXECUTE RUNS
         for (let r = 0; r < runsToScoreNow; r++) {
+            await service.checkpoint(); // Check for pause/cancel
             // Check runners to see how many a HR will score
             const runners = await getRunnersOnBase(service);
             let runValue = 1; // Batter
@@ -238,7 +239,7 @@ export async function performFullGameSimulation(
         const defenseBtnExists = await service.waitFor(SELECTORS.CONFIRM_DEFENSE, 10000);
         if (defenseBtnExists) {
             await service.click(SELECTORS.CONFIRM_DEFENSE);
-            await delay(1000);
+            await service.delay(1000);
         } else {
              // If game is over, this might not appear. 
              // But we checked gameOver above? Maybe we missed something.
@@ -249,7 +250,7 @@ export async function performFullGameSimulation(
         const nextBatterBtnExists = await service.waitFor(SELECTORS.NEXT_BATTER, 10000);
         if (nextBatterBtnExists) {
             await service.click(SELECTORS.NEXT_BATTER);
-            await delay(2000); // Wait for next inning to start
+            await service.delay(2000); // Wait for next inning to start
         }
 
         // UPDATE INNING STATE
