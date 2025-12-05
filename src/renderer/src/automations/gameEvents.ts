@@ -4,6 +4,7 @@ const SELECTORS = {
   PITCH_AREA: '.field.responsive-pitch-fx',
   PITCH_MENU: '#stringer-client-ingame > div.content > div.panelMenu',
   MATCHUP_STATUS: '#matchup > div:nth-child(2) > div.matchup-progress-container > div.matchup-atbat-status',
+  MATCHUP_INNING: '#matchup > div:nth-child(2) > div.matchup-progress-container > div.matchup-inning',
   FIRST_PITCH_DIALOG: '#templated-dialog',
   FIRST_PITCH_HEADER: '#templated-dialog-header',
   FIRST_PITCH_COMMIT: '#templated-dialog > div.templated-dialog-content > button',
@@ -26,7 +27,14 @@ const SELECTORS = {
   COMMIT_RUNNERS_STRIKEOUT: '#runner-dialog > div.pure-u-1-1.baseball-interrupt-actions > span.button-success.commit-runners-button-wrap.no-sub > button',
   
   // Walk Selectors
-  COMMIT_PITCH_WALK: '#panelMenuCommitBtnLabel'
+  COMMIT_PITCH_WALK: '#panelMenuCommitBtnLabel',
+
+  // ABS Challenge
+  ABS_CHALLENGE_BUTTON: '#abs-challenge-button',
+
+  // Manager Challenge
+  REVIEW_BUTTON: '#stringer-client-ingame > div.content > div.gameday-view-menu-wrapper > div > span.review-button',
+  REVIEW_START_BUTTON: '#templated-dialog-large > div > div > div.review-tab-content > form > button'
 };
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -357,4 +365,126 @@ export async function performWalk(service: AutomationService): Promise<void> {
   } else {
     console.warn('Next Batter dialog did not appear');
   }
+}
+
+export async function performABSChallenge(service: AutomationService): Promise<void> {
+  console.log('Starting ABS Challenge sequence...');
+  
+  await ensurePitchMenu(service);
+  
+  // Sequence: p -> b -> b
+  await service.sendKey('p');
+  await delay(200);
+  await service.sendKey('b');
+  await delay(200);
+  await service.sendKey('b');
+  
+  await delay(1500); // Wait for modals/buttons
+  
+  console.log('Waiting for ABS Challenge button...');
+  const absBtnExists = await service.waitFor(SELECTORS.ABS_CHALLENGE_BUTTON, 3000);
+  
+  if (absBtnExists) {
+    await service.click(SELECTORS.ABS_CHALLENGE_BUTTON);
+    console.log('Clicked ABS Challenge button');
+  } else {
+    console.warn('ABS Challenge button not found');
+  }
+}
+
+export async function performManagerChallenge(service: AutomationService): Promise<void> {
+  console.log('Starting Manager Challenge...');
+
+  // 1. Perform Single Hit
+  await performHit(service, 'Single');
+  await delay(1000);
+
+  // 2. Read Inning Status
+  let isTopInning = false;
+  try {
+    const inningText = await service.getText(SELECTORS.MATCHUP_INNING);
+    console.log(`Inning status: ${inningText}`);
+    isTopInning = inningText.includes('Top');
+  } catch (error) {
+    console.warn('Failed to read inning status, assuming Bottom', error);
+  }
+
+  // 3. Click Review Button
+  console.log('Clicking Review button...');
+  await service.click(SELECTORS.REVIEW_BUTTON);
+  await delay(1500);
+
+  // 4. Select Team
+  const teamValue = isTopInning ? 'home_team' : 'away_team';
+  console.log(`Selecting Team: ${teamValue} (Top: ${isTopInning})`);
+  
+  await service.execute(`
+    (function() {
+        // 1. Click Input
+        const input = document.querySelector('.selectize-control.reviewer .selectize-input');
+        if (input) {
+            input.click();
+        } else {
+            throw new Error('Reviewer input not found');
+        }
+    })()
+  `);
+  
+  await delay(500);
+
+  await service.execute(`
+    (function() {
+        // 2. Select Option by data-value
+        const val = '${teamValue}';
+        const option = document.querySelector('.selectize-dropdown.single.reviewer .selectize-dropdown-content div[data-value="' + val + '"]');
+        
+        if (option) {
+            option.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+            option.click(); // Redundant but safe
+        } else {
+            throw new Error('Team option ' + val + ' not found');
+        }
+    })()
+  `);
+  
+  await delay(500);
+
+  // 5. Select Reason: Close play at 1st (F)
+  console.log('Selecting Reason: Close play at 1st (F)...');
+  
+  await service.execute(`
+    (function() {
+        // 1. Click Input
+        const input = document.querySelector('.selectize-control.review_reason .selectize-input');
+        if (input) {
+            input.click();
+        } else {
+            throw new Error('Review Reason input not found');
+        }
+    })()
+  `);
+
+  await delay(500);
+
+  await service.execute(`
+    (function() {
+        // 2. Select Option 'F'
+        const option = document.querySelector('.selectize-dropdown.single.review_reason .selectize-dropdown-content div[data-value="F"]');
+        if (option) {
+            option.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+            option.click();
+        } else {
+            throw new Error('Reason option F not found');
+        }
+    })()
+  `);
+
+  await delay(500);
+
+  // 6. Click Start Review
+  console.log('Clicking Start Review...');
+  await service.click(SELECTORS.REVIEW_START_BUTTON);
+  await delay(500);
+  
+  console.log('Manager Challenge setup complete.');
 }

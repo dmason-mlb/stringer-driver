@@ -311,6 +311,29 @@ export const runInitialSetup = async (service: AutomationService): Promise<strin
             if (confirmBtn) {
                 confirmBtn.click();
                 log('Clicked Confirm Weather Data.');
+                
+                log('Waiting for Weather confirmation dialog...');
+                let okBtn = null;
+                // Wait up to 10 seconds for the dialog
+                for(let i=0; i<20; i++) {
+                    okBtn = document.querySelector('#alertify-ok');
+                    if(okBtn && okBtn.offsetParent !== null) break;
+                    await delay(500);
+                }
+
+                if (okBtn) {
+                    okBtn.click();
+                    log('Clicked OK on Weather confirmation dialog (1st time).');
+                    await delay(500);
+                    
+                    const okBtn2 = document.querySelector('#alertify-ok');
+                    if (okBtn2 && okBtn2.offsetParent !== null) {
+                        okBtn2.click();
+                        log('Clicked OK on Weather confirmation dialog (2nd time).');
+                    }
+                } else {
+                    log('Weather confirmation OK button not found within timeout.');
+                }
             } else {
                 log('Confirm Weather button not found.');
             }
@@ -461,9 +484,33 @@ export const runInitialSetup = async (service: AutomationService): Promise<strin
                      } else throw new Error("Commit Connection button not found");
                      
                      await delay(1000);
+
+                     // New Step: Click Yes on intermediate alert (after Commit)
+                     const intermediateYesBtn = document.querySelector('#alertify-ok');
+                     if(intermediateYesBtn) {
+                         intermediateYesBtn.click();
+                         log('Clicked Intermediate Yes button');
+                     } else {
+                        // It's possible this alert doesn't always show, or shows up fast/slow.
+                        // But user says "immediate after". We'll just log if not found for now or assume it's optional/timing dependent.
+                        // Given "you need to click", we should probably try to find it.
+                        log('Intermediate Yes button not found (might have been skipped or already clicked)');
+                     }
+
+                     await delay(1000);
                      
                      // 5. Click Send Warmups
-                     const sendWarmupsBtn = document.querySelector('#mainContainer > core-menu > div.app-status-pregame.core-selected > button');
+                     let sendWarmupsBtn = document.querySelector('#mainContainer > core-menu > div.app-status-pregame > button');
+                     
+                     // Fallback: Search by text content if specific selector fails
+                     if (!sendWarmupsBtn) {
+                         const allButtons = Array.from(document.querySelectorAll('button'));
+                         sendWarmupsBtn = allButtons.find(b => {
+                             const text = b.textContent || '';
+                             return text.includes('Send') && text.includes('Warmups');
+                         });
+                     }
+
                      if(sendWarmupsBtn) {
                          sendWarmupsBtn.click();
                          log('Clicked Send Warmups button');

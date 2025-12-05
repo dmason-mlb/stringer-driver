@@ -1,7 +1,8 @@
 import React, { useState } from 'react'
 import { useAutomation } from '../context/AutomationContext'
 import { runInitialSetup } from '../automations/initialSetup'
-import { performStrikeout, performStrikeoutsToEndInning, performHit, performOut, performWalk } from '../automations/gameEvents'
+import { performStrikeout, performStrikeoutsToEndInning, performHit, performOut, performWalk, performABSChallenge, performManagerChallenge } from '../automations/gameEvents'
+import { performAdvanceTwoFullInnings } from '../automations/advanceGame'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ChevronLeft, Plus } from 'lucide-react'
 import mlbLogo from '../assets/mlb-logo.svg'
@@ -97,6 +98,17 @@ export const Sidebar = ({ activeTabId, onGameSetup, loadingTabs, setTabLoading, 
           break;
         case "Ground Out":
           await performOut(service, 'Ground Out');
+          break;
+        case "Advance Two Full Innings":
+          await performAdvanceTwoFullInnings(service);
+          break;
+        case "ABS Challenge":
+          await performABSChallenge(service);
+          alert("ABS Challenge initiated");
+          break;
+        case "Manager Challenge":
+          await performManagerChallenge(service);
+          alert("Manager Challenge initiated");
           break;
         default:
           console.log(`Action: ${action} not implemented yet`);
@@ -210,10 +222,27 @@ export const Sidebar = ({ activeTabId, onGameSetup, loadingTabs, setTabLoading, 
       </button>
       
       <button 
-        disabled
-        className="w-full bg-gray-700 text-gray-400 text-sm font-medium py-2 px-4 rounded cursor-not-allowed opacity-75"
+        onClick={() => handleGameAction("Advance Two Full Innings")}
+        disabled={isLoading}
+        className="w-full bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium py-2 px-4 rounded transition-colors disabled:opacity-50"
       >
-        Advance to Game State (Soon)
+        Advance Two Full Innings
+      </button>
+      
+      <button 
+        onClick={() => handleGameAction("ABS Challenge")}
+        disabled={isLoading}
+        className="w-full bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium py-2 px-4 rounded transition-colors disabled:opacity-50"
+      >
+        ABS Challenge
+      </button>
+
+      <button 
+        onClick={() => handleGameAction("Manager Challenge")}
+        disabled={isLoading}
+        className="w-full bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-2 px-4 rounded transition-colors disabled:opacity-50"
+      >
+        Manager Challenge
       </button>
     </div>
   );
