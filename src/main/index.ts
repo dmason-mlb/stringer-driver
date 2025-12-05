@@ -9,12 +9,20 @@ function createWindow(): void {
     height: 800,
     show: false,
     autoHideMenuBar: true,
+    ...(process.platform === 'linux' || process.platform === 'win32'
+      ? { icon: join(__dirname, '../../resources/icon.png') }
+      : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
       webviewTag: true // Enable webview tag for the Stringer view
     }
   })
+
+  // Set the dock icon on macOS
+  if (process.platform === 'darwin') {
+    app.dock.setIcon(join(__dirname, '../../resources/icon.png'))
+  }
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()

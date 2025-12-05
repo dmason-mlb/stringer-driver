@@ -5,6 +5,28 @@
   "main": "out/main/index.js",
   "author": "MLB",
   "license": "MIT",
+  "build": {
+    "appId": "com.mlb.stringer-driver",
+    "productName": "Stringer Driver",
+    "directories": {
+      "buildResources": "resources"
+    },
+    "mac": {
+      "icon": "resources/icon.icns",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "win": {
+      "icon": "resources/icon.png",
+      "target": "nsis"
+    },
+    "linux": {
+      "icon": "resources/icon.png",
+      "target": "AppImage"
+    }
+  },
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
