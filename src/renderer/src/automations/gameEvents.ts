@@ -95,26 +95,47 @@ export async function getGameState(service: AutomationService): Promise<{ strike
 
 async function ensurePitchMenu(service: AutomationService, maxRetries = 3): Promise<void> {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    // 1. Click Pitch Area to open menu
-    await service.clickCenter(SELECTORS.PITCH_AREA);
-    await service.delay(500); // Wait for UI response
-
-    // 2. Check for First Pitch Dialog
+    // 1. Check for any blocking dialogs first (Next Batter, First Pitch, etc.)
     const dialogExists = await service.exists(SELECTORS.FIRST_PITCH_DIALOG);
     if (dialogExists) {
       const headerText = await service.getText(SELECTORS.FIRST_PITCH_HEADER);
-      if (headerText.includes('First Pitch')) {
-        console.log('Handling First Pitch dialog');
-        await service.click(SELECTORS.FIRST_PITCH_COMMIT);
-        await service.delay(1500); // Wait for dialog to close (increased from 1000ms)
+      console.log(`[ensurePitchMenu] Dialog detected with header: "${headerText}"`);
 
-        // Click pitch area again to actually bring up the menu if it wasn't a pitch
+      if (headerText.includes('First Pitch')) {
+        console.log('[ensurePitchMenu] Handling First Pitch dialog');
+        await service.click(SELECTORS.FIRST_PITCH_COMMIT);
+        await service.delay(1500);
+        // Verify it closed
+        const stillExists = await service.exists(SELECTORS.FIRST_PITCH_DIALOG);
+        if (stillExists) {
+          console.warn('[ensurePitchMenu] First Pitch dialog still present after clicking');
+        }
+      } else {
+        // Don't try to handle other dialogs here - they might be legitimate game state
+        console.log(`[ensurePitchMenu] Dialog present but not First Pitch: "${headerText}"`);
+        console.log('[ensurePitchMenu] Skipping dialog handling, will retry pitch menu');
+      }
+    }
+
+    // 2. Click Pitch Area to open menu
+    await service.clickCenter(SELECTORS.PITCH_AREA);
+    await service.delay(500); // Wait for UI response
+
+    // 3. Check again for dialogs that might have appeared
+    const dialogExistsAfterClick = await service.exists(SELECTORS.FIRST_PITCH_DIALOG);
+    if (dialogExistsAfterClick) {
+      const headerText = await service.getText(SELECTORS.FIRST_PITCH_HEADER);
+      if (headerText.includes('First Pitch')) {
+        console.log('Handling First Pitch dialog (after click)');
+        await service.click(SELECTORS.FIRST_PITCH_COMMIT);
+        await service.delay(1500);
+        // Click pitch area again
         await service.clickCenter(SELECTORS.PITCH_AREA);
         await service.delay(500);
       }
     }
 
-    // 3. Wait for Pitch Menu
+    // 4. Wait for Pitch Menu
     const menuOpen = await service.waitFor(SELECTORS.PITCH_MENU, 3000);
     if (menuOpen) {
       return; // Success
@@ -348,14 +369,13 @@ export async function performOut(service: AutomationService, outType: OutType): 
 
     // Check if out outcome dialog appeared (runners on base case)
     const dialogExists = await service.exists(SELECTORS.FIRST_PITCH_DIALOG);
-    if (dialogExists) {
-      const headerText = await service.getText(SELECTORS.FIRST_PITCH_HEADER);
-      if (headerText.toLowerCase().includes('hit in play') || headerText.toLowerCase().includes('out')) {
-        console.log(`Out outcome dialog detected (header: "${headerText}"), selecting Batter Out`);
-        await service.sendKey('o'); // Select "o - Batter Out"
-        outOutcomeDialogHandled = true;
-        break;
-      }
+    if (dialogExists && !hitLocationFound) {
+      // Try sending 'o' for any dialog during out sequence - defensive approach
+      // This handles the "Hit in play out(s) outcome" dialog regardless of what text we read
+      console.log(`Dialog detected during out sequence, sending 'o' for Batter Out`);
+      await service.sendKey('o'); // Select "o - Batter Out"
+      outOutcomeDialogHandled = true;
+      break;
     }
   }
 
@@ -450,6 +470,7 @@ export async function performWalk(service: AutomationService): Promise<void> {
   if (nextBatterBtnExists) {
     await service.click(SELECTORS.NEXT_BATTER_BUTTON);
     console.log('Clicked Next Batter');
+    await service.delay(1500); // Wait for dialog to close
   } else {
     console.warn('Next Batter dialog did not appear');
   }

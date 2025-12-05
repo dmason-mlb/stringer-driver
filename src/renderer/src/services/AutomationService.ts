@@ -11,7 +11,6 @@ export class AutomationService {
    * Set the abort signal for cancellation
    */
   setAbortSignal(signal: AbortSignal | null): void {
-    console.log('[AutomationService] setAbortSignal called, signal:', signal, 'this:', this);
     this.abortSignal = signal;
   }
 
@@ -19,7 +18,6 @@ export class AutomationService {
    * Set the pause promise for pausing
    */
   setPausePromise(promise: Promise<void> | null): void {
-    console.log('[AutomationService] setPausePromise called, promise:', promise, 'this:', this);
     this.pausePromise = promise;
   }
 
@@ -28,18 +26,13 @@ export class AutomationService {
    * Throws AbortError if cancelled, blocks if paused
    */
   async checkpoint(): Promise<void> {
-    console.log('[AutomationService] checkpoint called, abortSignal:', this.abortSignal, 'aborted:', this.abortSignal?.aborted, 'pausePromise:', this.pausePromise);
     if (this.abortSignal?.aborted) {
-      console.log('[AutomationService] ABORTING - signal is aborted');
       throw new DOMException('Automation cancelled', 'AbortError');
     }
     if (this.pausePromise) {
-      console.log('[AutomationService] PAUSING - awaiting pause promise');
       await this.pausePromise;
-      console.log('[AutomationService] RESUMED - pause promise resolved');
       // Re-check abort after resuming (in case cancelled while paused)
       if (this.abortSignal?.aborted) {
-        console.log('[AutomationService] ABORTING after resume - signal is aborted');
         throw new DOMException('Automation cancelled', 'AbortError');
       }
     }
