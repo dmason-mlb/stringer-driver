@@ -34,12 +34,16 @@ const SELECTORS = {
 
   // Manager Challenge
   REVIEW_BUTTON: '#stringer-client-ingame > div.content > div.gameday-view-menu-wrapper > div > span.review-button',
-  REVIEW_START_BUTTON: '#templated-dialog-large > div > div > div.review-tab-content > form > button'
+  REVIEW_START_BUTTON: '#templated-dialog-large > div > div > div.review-tab-content > form > button',
+
+  // Score Selectors
+  VISITING_SCORE: '#matchup > div:nth-child(2) > div.matchup-team.matchup-away-team > span.matchup-runs',
+  HOME_SCORE: '#matchup > div:nth-child(2) > div.matchup-team.matchup-home-team > span.matchup-runs'
 };
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-async function getRunnersOnBase(service: AutomationService): Promise<{ first: boolean, second: boolean, third: boolean }> {
+export async function getRunnersOnBase(service: AutomationService): Promise<{ first: boolean, second: boolean, third: boolean }> {
   const [first, second, third] = await Promise.all([
     service.exists(SELECTORS.RUNNER_FIRST),
     service.exists(SELECTORS.RUNNER_SECOND),
@@ -48,7 +52,32 @@ async function getRunnersOnBase(service: AutomationService): Promise<{ first: bo
   return { first, second, third };
 }
 
-async function getGameState(service: AutomationService): Promise<{ strikes: number, outs: number }> {
+export async function getScore(service: AutomationService): Promise<{ home: number, visiting: number }> {
+  try {
+    const [homeText, visitingText] = await Promise.all([
+      service.getText(SELECTORS.HOME_SCORE),
+      service.getText(SELECTORS.VISITING_SCORE)
+    ]);
+    return {
+      home: parseInt(homeText || '0', 10),
+      visiting: parseInt(visitingText || '0', 10)
+    };
+  } catch (error) {
+    console.warn('Failed to get score, defaulting to 0-0', error);
+    return { home: 0, visiting: 0 };
+  }
+}
+
+export async function getInning(service: AutomationService): Promise<string> {
+    try {
+        return await service.getText(SELECTORS.MATCHUP_INNING);
+    } catch (error) {
+        console.warn('Failed to get inning text', error);
+        return '';
+    }
+}
+
+export async function getGameState(service: AutomationService): Promise<{ strikes: number, outs: number }> {
   try {
     const text = await service.getText(SELECTORS.MATCHUP_STATUS);
     // Expected format: "0-1 0 out" (Balls-Strikes Outs)
@@ -254,8 +283,13 @@ export async function performHit(service: AutomationService, hitType: HitType): 
 
   // 7. Click Next Batter
   console.log('Checking for Next Batter button...');
-  const nextBatterBtnExists = await service.waitFor(SELECTORS.NEXT_BATTER_BUTTON, 5000);
+  // Increase timeout and add retry logic?
+  // Sometimes it takes a bit for the button to become interactable.
+  const nextBatterBtnExists = await service.waitFor(SELECTORS.NEXT_BATTER_BUTTON, 10000);
+  
   if (nextBatterBtnExists) {
+    // Add a small delay to ensure button is ready
+    await delay(500);
     await service.click(SELECTORS.NEXT_BATTER_BUTTON);
     console.log('Clicked Next Batter');
   } else {

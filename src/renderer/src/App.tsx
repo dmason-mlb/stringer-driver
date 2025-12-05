@@ -95,10 +95,14 @@ function App(): JSX.Element {
     webviewsRef.current[id] = webview;
   }, []);
 
+  const activeTab = tabs.find(t => t.id === activeTabId);
+  const activeTabName = activeTab ? activeTab.name : 'New Stringer Game';
+
   return (
     <div className="flex h-screen w-screen overflow-hidden">
       <Sidebar 
         activeTabId={activeTabId}
+        activeTabName={activeTabName}
         onGameSetup={handleGameSetup} 
         loadingTabs={loadingTabs}
         setTabLoading={handleSetTabLoading}

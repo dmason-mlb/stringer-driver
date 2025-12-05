@@ -1,26 +1,38 @@
 import React, { useState } from 'react'
 import { useAutomation } from '../context/AutomationContext'
 import { runInitialSetup } from '../automations/initialSetup'
-import { performStrikeout, performStrikeoutsToEndInning, performHit, performOut, performWalk, performABSChallenge, performManagerChallenge } from '../automations/gameEvents'
+import { performStrikeout, performStrikeoutsToEndInning, performHit, performOut, performWalk, performABSChallenge, performManagerChallenge, getScore } from '../automations/gameEvents'
 import { performAdvanceTwoFullInnings } from '../automations/advanceGame'
+import { performFullGameSimulation } from '../automations/fullGame'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ChevronLeft, Plus } from 'lucide-react'
 import mlbLogo from '../assets/mlb-logo.svg'
+import { GameSimulationDialog } from './GameSimulationDialog'
 
 type View = 'main' | 'advance' | 'individual';
 
 interface SidebarProps {
   activeTabId: string;
+  activeTabName: string;
   onGameSetup?: (tabId: string, name: string) => void;
   loadingTabs: Record<string, boolean>;
   setTabLoading: (tabId: string, isLoading: boolean) => void;
   onNewGame?: () => void;
 }
 
-export const Sidebar = ({ activeTabId, onGameSetup, loadingTabs, setTabLoading, onNewGame }: SidebarProps) => {
+export const Sidebar = ({ activeTabId, activeTabName, onGameSetup, loadingTabs, setTabLoading, onNewGame }: SidebarProps) => {
   const { service } = useAutomation();
   const [currentView, setCurrentView] = useState<View>('main');
   const [direction, setDirection] = useState(0);
+
+  // Dialog State
+  const [simulationDialogOpen, setSimulationDialogOpen] = useState(false);
+  const [dialogData, setDialogData] = useState({
+      homeTeam: 'Home Team',
+      visitingTeam: 'Visiting Team',
+      currentHomeScore: 0,
+      currentVisitingScore: 0
+  });
 
   // Determine if the *current active tab* is loading
   const isLoading = loadingTabs[activeTabId] || false;
@@ -58,6 +70,57 @@ export const Sidebar = ({ activeTabId, onGameSetup, loadingTabs, setTabLoading, 
     } else {
         alert('Automation service not ready');
     }
+  };
+
+  const handleStandardGame9Innings = async () => {
+      if (!service) {
+          alert('Automation service not ready');
+          return;
+      }
+
+      // Parse team names
+      let homeTeam = 'Home Team';
+      let visitingTeam = 'Visiting Team';
+
+      if (activeTabName && activeTabName.includes('@')) {
+          const parts = activeTabName.split('@');
+          if (parts.length === 2) {
+              visitingTeam = parts[0].trim();
+              homeTeam = parts[1].trim();
+          }
+      }
+
+      try {
+          const score = await getScore(service);
+          setDialogData({
+              homeTeam,
+              visitingTeam,
+              currentHomeScore: score.home,
+              currentVisitingScore: score.visiting
+          });
+          setSimulationDialogOpen(true);
+      } catch (error) {
+          console.error("Failed to get game state for simulation", error);
+          alert("Could not retrieve current game score. Please ensure game is active.");
+      }
+  };
+
+  const onSimulateGame = async (targetHome: number, targetVisitor: number) => {
+      setSimulationDialogOpen(false);
+      const operationTabId = activeTabId;
+      
+      if (!service) return;
+
+      setTabLoading(operationTabId, true);
+      try {
+          await performFullGameSimulation(service, targetHome, targetVisitor);
+          alert("Game Simulation Completed!");
+      } catch (error) {
+          console.error("Game Simulation Failed", error);
+          alert(`Game Simulation Failed: ${error instanceof Error ? error.message : String(error)}`);
+      } finally {
+          setTabLoading(operationTabId, false);
+      }
   };
 
   const handleGameAction = async (action: string) => {
@@ -222,6 +285,14 @@ export const Sidebar = ({ activeTabId, onGameSetup, loadingTabs, setTabLoading, 
       </button>
       
       <button 
+        onClick={handleStandardGame9Innings}
+        disabled={isLoading}
+        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium py-2 px-4 rounded transition-colors disabled:opacity-50"
+      >
+        Standard Game - 9 innings
+      </button>
+
+      <button 
         onClick={() => handleGameAction("Advance Two Full Innings")}
         disabled={isLoading}
         className="w-full bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium py-2 px-4 rounded transition-colors disabled:opacity-50"
@@ -278,7 +349,7 @@ export const Sidebar = ({ activeTabId, onGameSetup, loadingTabs, setTabLoading, 
   };
 
   return (
-    <div className="w-64 h-full bg-gray-800 text-white flex flex-col border-r border-gray-700 overflow-hidden">
+    <div className="w-64 h-full bg-gray-800 text-white flex flex-col border-r border-gray-700 overflow-hidden relative">
       <div className="p-4 border-b border-gray-700 z-10 bg-gray-800 flex items-center gap-3">
         <img src={mlbLogo} alt="MLB Logo" className="h-8 w-auto" />
         <h1 className="text-xl font-bold">Stringer Driver</h1>
@@ -305,6 +376,16 @@ export const Sidebar = ({ activeTabId, onGameSetup, loadingTabs, setTabLoading, 
           </motion.div>
         </AnimatePresence>
       </div>
+
+      <GameSimulationDialog 
+        isOpen={simulationDialogOpen}
+        onClose={() => setSimulationDialogOpen(false)}
+        onSimulate={onSimulateGame}
+        currentHomeScore={dialogData.currentHomeScore}
+        currentVisitingScore={dialogData.currentVisitingScore}
+        homeTeamName={dialogData.homeTeam}
+        visitingTeamName={dialogData.visitingTeam}
+      />
     </div>
   )
 }

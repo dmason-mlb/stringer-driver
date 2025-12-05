@@ -518,12 +518,29 @@ export const runInitialSetup = async (service: AutomationService): Promise<strin
                      
                      await delay(1000);
                      
-                     // 6. Click Yes
-                     const yesBtn2 = document.querySelector('#alertify-ok');
-                     if(yesBtn2) {
-                         yesBtn2.click();
-                         log('Clicked Yes (2)');
-                     } else throw new Error("Second Yes button not found");
+                     // 6. Click Yes (handling potential multiple dialogs)
+                     log('Waiting for Warmups confirmation dialog...');
+                     let warmupsOkBtn = null;
+                     // Wait up to 10 seconds for the dialog
+                     for(let i=0; i<20; i++) {
+                         warmupsOkBtn = document.querySelector('#alertify-ok');
+                         if(warmupsOkBtn && warmupsOkBtn.offsetParent !== null) break;
+                         await delay(500);
+                     }
+
+                     if (warmupsOkBtn) {
+                         warmupsOkBtn.click();
+                         log('Clicked OK on Warmups confirmation dialog (1st time).');
+                         await delay(500);
+                         
+                         const warmupsOkBtn2 = document.querySelector('#alertify-ok');
+                         if (warmupsOkBtn2 && warmupsOkBtn2.offsetParent !== null) {
+                             warmupsOkBtn2.click();
+                             log('Clicked OK on Warmups confirmation dialog (2nd time).');
+                         }
+                     } else {
+                         throw new Error("Warmups confirmation dialog not found");
+                     }
                      
                      await delay(1000);
                      
